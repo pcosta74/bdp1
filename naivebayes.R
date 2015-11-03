@@ -2,14 +2,15 @@ source('common.R')
 
 nb.classifier<-function(classcolumn,dataset) {
   if(is.empty.data.frame(dataset))
-    stop(paste("Empty data frame"))
+    stop("Empty data frame")
   
   if(!classcolumn %in% names(dataset))
-    stop(paste("Unknown column: ", classcolumn))
+    stop("Unknown column: ", classcolumn)
   
   classifier<-list()
   classifier[[classcolumn]]<-nb.distribution_table(
     dataset, list(classcolumn))
+  colnames(classifier[[classcolumn]])<-c(classcolumn)
 
   list.attrs <-names(dataset)[names(dataset)!=classcolumn]
   if(!length(list.attrs))
@@ -28,20 +29,26 @@ nb.classifier<-function(classcolumn,dataset) {
 
 nb.predictor<-function(classifier,classcolumn,dataset) {
   if(is.empty.data.frame(dataset))
-    stop(paste("Empty data frame"))
+    stop("Empty data frame")
   
   if(!classcolumn %in% names(dataset))
-    stop(paste("Unknown column: ", classcolumn))
+    stop("Unknown column: ", classcolumn)
+
+  list.attrs<-unique(c(names(dataset),classcolumn))
+  is.valid<-all(sort(names(classifier)) == sort(list.attrs))
+  if(!is.valid)
+    stop("Trainning and test datasets do not match")
+  
+  list.attrs<-list.attrs[list.attrs!=classcolumn]
+  list.labels<-rownames(classifier[[classcolumn]])
 
   dataset[[classcolumn]]<-NA
-  list.attrs<-names(dataset)[names(dataset)!=classcolumn]
-  list.labels<-rownames(classifier[[classcolumn]])
-  
+  postprob<-matrix(0,2,1,dimnames=list(list.labels,classcolumn))
+
   for(k in 1:nrow(dataset)) {
     row<-dataset[k,]
-    postprob<-matrix(0,2,1,dimnames=list(list.labels,classcolumn))
   
-    for(label in rownames(classifier[[classcolumn]])) {
+    for(label in list.labels) {
       postprob[label,]<-as.double(classifier[[classcolumn]][label,])
       for(attr in list.attrs) {
         postprob[label,]<-
@@ -49,11 +56,13 @@ nb.predictor<-function(classifier,classcolumn,dataset) {
       }
     }
     
+    # Irrelevant?
     if(sum(postprob)!=0)
       postprob<-postprob/sum(postprob)
     
     cls<-subset(postprob,postprob==max(postprob))
     dataset[[k,classcolumn]]<-rownames(cls)
+    postprob[,classcolumn]=0
   }
   
   return(dataset)
@@ -61,7 +70,7 @@ nb.predictor<-function(classifier,classcolumn,dataset) {
 
 nb.distribution_table<-function(dataset, list.attrs=list()) {
   if(!is.list(list.attrs))
-    stop(paste("Expected list, got ",sapply(list.attrs,class)))  
+    stop("Expected list, got ",sapply(list.attrs,class))  
   
   if(is.nominal.attribute(list.attrs)) {
     table<-table(dataset[unlist(list.attrs)],dnn=list.attrs)

@@ -3,8 +3,8 @@ read.dataset<-function(path) {
   return(dataset)
 }
 
-write.dataset<-function(dataset,path=NULL) {
-  dataset
+write.dataset<-function(dataset,path="") {
+  write.csv(dataset, file=path, row.names = F)
 }
 
 preprocess.dataset<-function(dataset) {
