@@ -16,7 +16,7 @@ run<-function() {
   #rownames(t)<-c("")
   #cat("A priori probabilities:\n")
   #print(t)
-    
+  
   if(is.valid) {
     test.ds<-read.dataset(config.test$file)
     test.ds<-preprocess.dataset(test.ds)

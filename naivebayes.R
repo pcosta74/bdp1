@@ -10,15 +10,16 @@ nb.classifier<-function(classcolumn,dataset) {
   classifier<-list()
   classifier[[classcolumn]]<-nb.distribution_table(
     dataset, list(classcolumn))
-  colnames(classifier[[classcolumn]])<-c(classcolumn)
 
   list.attrs <-names(dataset)[names(dataset)!=classcolumn]
   if(!length(list.attrs))
     stop("Empty attribute list")
   
   for(attr in list.attrs) {
-    classifier[[attr]]<-nb.distribution_table(
-      dataset, list(classcolumn,attr))
+    classifier[[attr]]<-list(
+      simple=nb.distribution_table(dataset, list(attr)),
+      join=nb.distribution_table(dataset, list(classcolumn,attr))
+    )
   }
   
   if(!length(classifier))
@@ -47,21 +48,21 @@ nb.predictor<-function(classifier,classcolumn,dataset) {
 
   for(k in 1:nrow(dataset)) {
     row<-dataset[k,]
-  
-    for(label in list.labels) {
-      postprob[label,]<-as.double(classifier[[classcolumn]][label,])
-      for(attr in list.attrs) {
-        postprob[label,]<-
-          postprob[label,] * as.double(classifier[[attr]][label,row[[attr]]])
-      }
+    postprob[,classcolumn]<-classifier[[classcolumn]]
+
+    for(attr in list.attrs) {
+      simple<-classifier[[attr]][["simple"]]
+      join<-classifier[[attr]][["join"]]
+      postprob[, classcolumn] <- postprob[, classcolumn] *
+        t(t(join[,row[[attr]]]/simple[row[[attr]]]))
     }
     
     # Irrelevant?
-    if(sum(postprob)!=0)
-      postprob<-postprob/sum(postprob)
+    #if(sum(postprob)!=0)
+    #  postprob<-postprob/sum(postprob)
     
-    cls<-subset(postprob,postprob==max(postprob))
-    dataset[[k,classcolumn]]<-rownames(cls)
+    label<-subset(postprob,postprob==max(postprob))
+    dataset[[k,classcolumn]]<-rownames(label)
     postprob[,classcolumn]=0
   }
   
@@ -74,8 +75,13 @@ nb.distribution_table<-function(dataset, list.attrs=list()) {
   
   if(is.nominal.attribute(list.attrs)) {
     table<-table(dataset[unlist(list.attrs)],dnn=list.attrs)
+    
     prob.table<-as.matrix(table, responseName="probability")
     prob.table<-prob.table/nrow(dataset)
+    
+    if(length(list.attrs)==1)
+      colnames(prob.table)<-list.attrs
+    
     return(prob.table)  
   }
 
