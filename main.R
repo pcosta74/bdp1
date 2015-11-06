@@ -12,10 +12,7 @@ run<-function() {
   is.valid<-length(classifier) == ncol(train.ds)
   remove(train.ds)
   
-  #t<-as.table(t(classifier[[config.train$classcolumn]]))
-  #rownames(t)<-c("")
-  #cat("A priori probabilities:\n")
-  #print(t)
+  nb.print.stats(classifier)
   
   if(is.valid) {
     test.ds<-read.dataset(config.test$file)

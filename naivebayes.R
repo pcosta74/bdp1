@@ -15,11 +15,11 @@ nb.classifier<-function(classcolumn,dataset) {
   if(!length(list.attrs))
     stop("Empty attribute list")
   
+  freq<-as.matrix(table(dataset[classcolumn]))
   for(attr in list.attrs) {
-    classifier[[attr]]<-list(
-      simple=nb.distribution_table(dataset, list(attr)),
-      join=nb.distribution_table(dataset, list(classcolumn,attr))
-    )
+    sp<-nb.distribution_table(dataset, list(attr))
+    jp<-nb.distribution_table(dataset, list(classcolumn,attr),freq)
+    classifier[[attr]]<-list(simple=sp,join=jp)
   }
   
   if(!length(classifier))
@@ -54,7 +54,7 @@ nb.predictor<-function(classifier,classcolumn,dataset) {
       simple<-classifier[[attr]][["simple"]]
       join<-classifier[[attr]][["join"]]
       postprob[, classcolumn] <- postprob[, classcolumn] *
-        t(t(join[,row[[attr]]]/simple[row[[attr]]]))
+        as.matrix(join[,row[[attr]]]/simple[row[[attr]]])
     }
     
     # Irrelevant?
@@ -69,15 +69,20 @@ nb.predictor<-function(classifier,classcolumn,dataset) {
   return(dataset)
 }
 
-nb.distribution_table<-function(dataset, list.attrs=list()) {
+nb.distribution_table<-function(dataset, list.attrs=list(), size=nrow(dataset)) {
   if(!is.list(list.attrs))
     stop("Expected list, got ",sapply(list.attrs,class))  
-  
+
   if(is.nominal.attribute(list.attrs)) {
     table<-table(dataset[unlist(list.attrs)],dnn=list.attrs)
     
     prob.table<-as.matrix(table, responseName="probability")
-    prob.table<-prob.table/nrow(dataset)
+    if(class(size) == "integer")
+        prob.table<-prob.table/size
+    else if(class(size) == "matrix")
+      prob.table<-prob.table/size[,1]
+    else
+      stop("invalid data type: size [", class(size),"]")
     
     if(length(list.attrs)==1)
       colnames(prob.table)<-list.attrs
@@ -86,4 +91,12 @@ nb.distribution_table<-function(dataset, list.attrs=list()) {
   }
 
   return(NULL)
+}
+
+
+nb.print.stats<-function(classifier) {
+  t<-as.table(t(classifier[[1]]))
+  rownames(t)<-c("")
+  print("A priori probabilities:\n")
+  print(t)
 }
