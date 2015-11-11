@@ -7,20 +7,23 @@ nb.classifier<-function(classcolumn,dataset) {
   if(!classcolumn %in% names(dataset))
     stop("Unknown column: ", classcolumn)
   
-  classifier<-list()
-  classifier[[classcolumn]]<-nb.distribution_table(
-    dataset, list(classcolumn))
-
   list.attrs <-names(dataset)[names(dataset)!=classcolumn]
   if(!length(list.attrs))
     stop("Empty attribute list")
   
-  freq<-as.matrix(table(dataset[classcolumn]))
-  for(attr in list.attrs) {
-    sp<-nb.distribution_table(dataset, list(attr))
-    jp<-nb.distribution_table(dataset, list(classcolumn,attr),freq)
-    classifier[[attr]]<-list(simple=sp,join=jp)
-  }
+  class.freq<-as.matrix(table(dataset[classcolumn]))
+  classifier<-sapply(list.attrs, 
+    function(attr) {
+      card<-length(levels(dataset[[attr]]))
+      smp<-nb.distr.table(dataset, list(attr), attr.card=card)
+      jnt<-nb.distr.table(dataset, list(classcolumn, attr), 
+                         attr.card=card, class.frequency=class.freq)
+      return(list(simple=smp, joint=jnt))
+    }, 
+    simplify = FALSE, USE.NAMES=TRUE
+  ) 
+  classifier[[classcolumn]]<-nb.distr.table(
+    dataset, list(classcolumn), attr.card=nrow(class.freq))
   
   if(!length(classifier))
     stop("Unable to create classifier")
@@ -28,13 +31,10 @@ nb.classifier<-function(classcolumn,dataset) {
   return(classifier)
 }
 
-nb.predictor<-function(classifier,classcolumn,dataset) {
+nb.predictor<-function(classifier, classcolumn, dataset) {
   if(is.empty.data.frame(dataset))
     stop("Empty data frame")
   
-  if(!classcolumn %in% names(dataset))
-    stop("Unknown column: ", classcolumn)
-
   list.attrs<-unique(c(names(dataset),classcolumn))
   is.valid<-all(sort(names(classifier)) == sort(list.attrs))
   if(!is.valid)
@@ -44,59 +44,64 @@ nb.predictor<-function(classifier,classcolumn,dataset) {
   list.labels<-rownames(classifier[[classcolumn]])
 
   dataset[[classcolumn]]<-NA
-  postprob<-matrix(0,2,1,dimnames=list(list.labels,classcolumn))
+  post.probs<-matrix(0,2,1,dimnames=list(list.labels,classcolumn))
 
   for(k in 1:nrow(dataset)) {
     row<-dataset[k,]
-    postprob[,classcolumn]<-classifier[[classcolumn]]
+    post.probs[,classcolumn]<-classifier[[classcolumn]]
 
     for(attr in list.attrs) {
-      simple<-classifier[[attr]][["simple"]]
-      join<-classifier[[attr]][["join"]]
-      postprob[, classcolumn] <- postprob[, classcolumn] *
-        as.matrix(join[,row[[attr]]]/simple[row[[attr]]])
+      index<-as.character(row[[attr]])
+      prob.tables<-classifier[[attr]]
+      post.probs[, classcolumn] <- post.probs[, classcolumn] *
+        as.matrix(prob.tables$joint[,index]/prob.tables$simple[index,])
     }
     
-    # Irrelevant?
-    #if(sum(postprob)!=0)
-    #  postprob<-postprob/sum(postprob)
+    # Irrelevant
+    #if(sum(post.probs)!=0)
+    #  post.probs<-post.probs/sum(post.probs)
     
-    label<-subset(postprob,postprob==max(postprob))
+    label<-subset(post.probs,post.probs==max(post.probs))
     dataset[[k,classcolumn]]<-rownames(label)
-    postprob[,classcolumn]=0
   }
   
   return(dataset)
 }
 
-nb.distribution_table<-function(dataset, list.attrs=list(), size=nrow(dataset)) {
-  if(!is.list(list.attrs))
-    stop("Expected list, got ",sapply(list.attrs,class))  
+nb.distr.table<-function(dataset, list.attrs, attr.card, class.frequency=NULL) {
+  
+  if(!is.nominal.attribute(list.attrs))
+    return(NULL)
+  
+  table<-table(dataset[unlist(list.attrs)],dnn=list.attrs)
+  prob.table<-as.matrix(table, responseName="probability")
 
-  if(is.nominal.attribute(list.attrs)) {
-    table<-table(dataset[unlist(list.attrs)],dnn=list.attrs)
-    
-    prob.table<-as.matrix(table, responseName="probability")
-    if(class(size) == "integer")
-        prob.table<-prob.table/size
-    else if(class(size) == "matrix")
-      prob.table<-prob.table/size[,1]
-    else
-      stop("invalid data type: size [", class(size),"]")
-    
-    if(length(list.attrs)==1)
-      colnames(prob.table)<-list.attrs
-    
-    return(prob.table)  
-  }
+  if(length(list.attrs)==1)
+    colnames(prob.table)<-list.attrs
 
-  return(NULL)
+  dataset.size<-nrow(dataset)
+  if(is.null(class.frequency))
+    size<-dataset.size
+  else
+    size<-class.frequency
+  
+  if(any(size == 0))
+    stop("invalid data size: ",size)
+  
+  #laplace correction
+  if(is.numeric(attr.card)) {
+    prob.table<-prob.table + 1/dataset.size
+    size<-size + attr.card/dataset.size
+  } 
+  
+  if(class(size) == "matrix")
+    prob.table<-prob.table/size[,1]
+  else
+    prob.table<-prob.table/size
+
+  return(prob.table)  
 }
 
 
 nb.print.stats<-function(classifier) {
-  t<-as.table(t(classifier[[1]]))
-  rownames(t)<-c("")
-  print("A priori probabilities:\n")
-  print(t)
 }
