@@ -1,14 +1,13 @@
-is.nominal.attribute<-function(attr,warn=T) {
-  attr.type<-sapply(attr,class)
+is.nominal.attr<-function(x) {
+  attr.type<-apply(x, 1, class)
   non.nominal<-attr.type!="character"
   
   if(any(non.nominal)) {
-    message<-paste(attr[non.nominal],"[",attr.type[non.nominal],"]",
+    message<-paste(x[non.nominal],"[",attr.type[non.nominal],"]",
                    sep="",collapse=",")
-    warning("Non-nominal attributes:", message)
+    warning("Non-nominal attributes:", message, immediate.=T)
     return(FALSE)
   }
-  
   return(TRUE)
 }
 

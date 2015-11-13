@@ -1,29 +1,25 @@
-source('common.R')
+nb.classifier<-function(dataframe, classcol) {
 
-nb.classifier<-function(classcolumn,dataset) {
-  if(is.empty.data.frame(dataset))
-    stop("Empty data frame")
+  if(!classcol %in% names(dataframe))
+    stop("Unknown column: ", classcol)
   
-  if(!classcolumn %in% names(dataset))
-    stop("Unknown column: ", classcolumn)
-  
-  list.attrs <-names(dataset)[names(dataset)!=classcolumn]
-  if(!length(list.attrs))
+  list.attrs <-names(dataframe)
+  if(all(list.attrs == classcol))
     stop("Empty attribute list")
   
-  class.freq<-as.matrix(table(dataset[classcolumn]))
-  classifier<-sapply(list.attrs, 
+  class.freq<-as.matrix(table(dataframe[classcol]))
+  classifier<-sapply(list.attrs[list.attrs!=classcol], 
     function(attr) {
-      card<-length(levels(dataset[[attr]]))
-      smp<-nb.distr.table(dataset, list(attr), attr.card=card)
-      jnt<-nb.distr.table(dataset, list(classcolumn, attr), 
+      card<-length(levels(dataframe[[attr]]))
+      smp<-nb.distr.table(dataframe, list(attr), attr.card=card)
+      jnt<-nb.distr.table(dataframe, list(classcol, attr), 
                          attr.card=card, class.frequency=class.freq)
       return(list(simple=smp, joint=jnt))
     }, 
     simplify = FALSE, USE.NAMES=TRUE
   ) 
-  classifier[[classcolumn]]<-nb.distr.table(
-    dataset, list(classcolumn), attr.card=nrow(class.freq))
+  classifier[[classcol]]<-nb.distr.table(
+    dataframe, list(classcol), attr.card=nrow(class.freq))
   
   if(!length(classifier))
     stop("Unable to create classifier")
@@ -31,29 +27,27 @@ nb.classifier<-function(classcolumn,dataset) {
   return(classifier)
 }
 
-nb.predictor<-function(classifier, classcolumn, dataset) {
-  if(is.empty.data.frame(dataset))
-    stop("Empty data frame")
+nb.predictor<-function(classifier, dataframe, classcol) {
   
-  list.attrs<-unique(c(names(dataset),classcolumn))
+  list.attrs<-unique(c(names(dataframe),classcol))
   is.valid<-all(sort(names(classifier)) == sort(list.attrs))
   if(!is.valid)
-    stop("Trainning and test datasets do not match")
+    stop("Trainning and test dataframes do not match")
   
-  list.attrs<-list.attrs[list.attrs!=classcolumn]
-  list.labels<-rownames(classifier[[classcolumn]])
+  list.attrs<-list.attrs[list.attrs!=classcol]
+  list.labels<-rownames(classifier[[classcol]])
 
-  dataset[[classcolumn]]<-NA
-  post.probs<-matrix(0,2,1,dimnames=list(list.labels,classcolumn))
+  dataframe[[classcol]]<-NA
+  post.probs<-matrix(0,2,1,dimnames=list(list.labels,classcol))
 
-  for(k in 1:nrow(dataset)) {
-    row<-dataset[k,]
-    post.probs[,classcolumn]<-classifier[[classcolumn]]
+  for(k in 1:nrow(dataframe)) {
+    row<-dataframe[k,]
+    post.probs[,classcol]<-classifier[[classcol]]
 
     for(attr in list.attrs) {
       index<-as.character(row[[attr]])
       prob.tables<-classifier[[attr]]
-      post.probs[, classcolumn] <- post.probs[, classcolumn] *
+      post.probs[, classcol] <- post.probs[, classcol] *
         as.matrix(prob.tables$joint[,index]/prob.tables$simple[index,])
     }
     
@@ -62,26 +56,23 @@ nb.predictor<-function(classifier, classcolumn, dataset) {
     #  post.probs<-post.probs/sum(post.probs)
     
     label<-subset(post.probs,post.probs==max(post.probs))
-    dataset[[k,classcolumn]]<-rownames(label)
+    dataframe[[k,classcol]]<-rownames(label)
   }
   
-  return(dataset)
+  return(dataframe)
 }
 
-nb.distr.table<-function(dataset, list.attrs, attr.card, class.frequency=NULL) {
+nb.distr.table<-function(dataframe, list.attrs, attr.card, class.frequency=NULL) {
   
-  if(!is.nominal.attribute(list.attrs))
-    return(NULL)
-  
-  table<-table(dataset[unlist(list.attrs)],dnn=list.attrs)
+  table<-table(dataframe[unlist(list.attrs)],dnn=list.attrs)
   prob.table<-as.matrix(table, responseName="probability")
 
   if(length(list.attrs)==1)
     colnames(prob.table)<-list.attrs
 
-  dataset.size<-nrow(dataset)
+  dataframe.size<-nrow(dataframe)
   if(is.null(class.frequency))
-    size<-dataset.size
+    size<-dataframe.size
   else
     size<-class.frequency
   
@@ -90,8 +81,8 @@ nb.distr.table<-function(dataset, list.attrs, attr.card, class.frequency=NULL) {
   
   #laplace correction
   if(is.numeric(attr.card)) {
-    prob.table<-prob.table + 1/dataset.size
-    size<-size + attr.card/dataset.size
+    prob.table<-prob.table + 1/dataframe.size
+    size<-size + attr.card/dataframe.size
   } 
   
   if(class(size) == "matrix")

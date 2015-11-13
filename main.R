@@ -3,22 +3,22 @@ source('naivebayes.R')
 
 config<<-list(
   train.file="clientes_train.csv",
-  train.classcolumn="emprestimo",
+  train.classcol="emprestimo",
   test.file="clientes_test2.csv",
-  test.classcolumn="emprestimo",
+  test.classcol="emprestimo",
   outputfile="clientes_pred2.csv"
 )
 
 run<-function() {
-  train.ds<-read.dataset(config$train.file)
-  classifier<-nb.classifier(config$train.classcolumn,train.ds)
-  is.valid<-length(classifier) == ncol(train.ds)
-  remove(train.ds)
+  train.df<-read.data.frame(config$train.file)
+  classifier<-nb.classifier(train.df,config$train.classcol)
+  is.valid<-length(classifier) == ncol(train.df)
+  remove(train.df)
   
   if(is.valid) {
-    test.ds<-read.dataset(config$test.file)
-    test.ds<-nb.predictor(classifier,config$test.classcolumn,test.ds)
-    write.dataset(test.ds,config$outputfile)
-    remove(test.ds)
+    test.df<-read.data.frame(config$test.file)
+    test.df<-nb.predictor(classifier,test.df,config$test.classcol)
+    write.data.frame(test.df,config$outputfile)
+    remove(test.df)
   }
 }
