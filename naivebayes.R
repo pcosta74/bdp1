@@ -1,3 +1,7 @@
+# Cond. Prob:  P(A|B) = P(A&B)/P(B)
+# Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
+# NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
+
 nb.classifier<-function(dataframe, classcol) {
 
   if(!classcol %in% names(dataframe))
@@ -7,92 +11,50 @@ nb.classifier<-function(dataframe, classcol) {
   if(all(list.attrs == classcol))
     stop("Empty attribute list")
   
-  class.freq<-as.matrix(table(dataframe[classcol]))
-  classifier<-sapply(list.attrs[list.attrs!=classcol], 
-    function(attr) {
-      card<-length(levels(dataframe[[attr]]))
-      smp<-nb.distr.table(dataframe, list(attr), attr.card=card)
-      jnt<-nb.distr.table(dataframe, list(classcol, attr), 
-                         attr.card=card, class.frequency=class.freq)
-      return(list(simple=smp, joint=jnt))
-    }, 
-    simplify = FALSE, USE.NAMES=TRUE
-  ) 
-  classifier[[classcol]]<-nb.distr.table(
-    dataframe, list(classcol), attr.card=nrow(class.freq))
-  
-  if(!length(classifier))
+  classifier<-sapply(list.attrs, nb.distr.table, classcol, dataframe) 
+
+  if(length(classifier) == 0)
     stop("Unable to create classifier")
   
   return(classifier)
 }
 
-nb.predictor<-function(classifier, dataframe, classcol) {
+nb.predictor<-function(classifier, dataframe, classcol, log.probs=TRUE) {
   
-  list.attrs<-unique(c(names(dataframe),classcol))
-  is.valid<-all(sort(names(classifier)) == sort(list.attrs))
-  if(!is.valid)
+  list.attrs<-unique(c(names(dataframe), classcol))
+  
+  if(all(sort(names(classifier)) != sort(list.attrs)))
     stop("Trainning and test dataframes do not match")
   
-  list.attrs<-list.attrs[list.attrs!=classcol]
-  list.labels<-rownames(classifier[[classcol]])
+  dataframe[[classcol]]<-apply(dataframe, 1, function(row) {
+    post.prob<-sapply(list.attrs, function(attr) {
+      prob.tbl<-classifier[[attr]]
+      sum.row<-nrow(prob.tbl)
+      if(attr == classcol) return(prob.tbl)
+      else return(prob.tbl[-sum.row,][row[[attr]],]/prob.tbl[sum.row,])
+    })
+    if(log.probs) post.prob<-apply(post.prob, 1, function(r) sum(log(r)))
+    else post.prob<-apply(post.prob, 1, prod)
+    return(names(which.max(post.prob)))
+  }) 
 
-  dataframe[[classcol]]<-NA
-  post.probs<-matrix(0,2,1,dimnames=list(list.labels,classcol))
-
-  for(k in 1:nrow(dataframe)) {
-    row<-dataframe[k,]
-    post.probs[,classcol]<-classifier[[classcol]]
-
-    for(attr in list.attrs) {
-      index<-as.character(row[[attr]])
-      prob.tables<-classifier[[attr]]
-      post.probs[, classcol] <- post.probs[, classcol] *
-        as.matrix(prob.tables$joint[,index]/prob.tables$simple[index,])
-    }
-    
-    # Irrelevant
-    #if(sum(post.probs)!=0)
-    #  post.probs<-post.probs/sum(post.probs)
-    
-    label<-subset(post.probs,post.probs==max(post.probs))
-    dataframe[[k,classcol]]<-rownames(label)
-  }
-  
   return(dataframe)
 }
 
-nb.distr.table<-function(dataframe, list.attrs, attr.card, class.frequency=NULL) {
-  
-  table<-table(dataframe[unlist(list.attrs)],dnn=list.attrs)
-  prob.table<-as.matrix(table, responseName="probability")
+nb.distr.table<-function(attr, classcol, dataframe) {
 
-  if(length(list.attrs)==1)
-    colnames(prob.table)<-list.attrs
+  v.attrs<-unique(c(attr,classcol))
+  n.rows<-nrow(dataframe)
 
-  dataframe.size<-nrow(dataframe)
-  if(is.null(class.frequency))
-    size<-dataframe.size
-  else
-    size<-class.frequency
-  
-  if(any(size == 0))
-    stop("invalid data size: ",size)
-  
-  #laplace correction
-  if(is.numeric(attr.card)) {
-    prob.table<-prob.table + 1/dataframe.size
-    size<-size + attr.card/dataframe.size
-  } 
-  
-  if(class(size) == "matrix")
-    prob.table<-prob.table/size[,1]
-  else
-    prob.table<-prob.table/size
+  # with laplace correction
+  tbl<-table(dataframe[,v.attrs], dnn=v.attrs) + 1/n.rows
+  tbl<-tbl / (n.rows + nrow(tbl)/n.rows)
 
-  return(prob.table)  
-}
-
-
-nb.print.stats<-function(classifier) {
+  # for faster calculation later on
+  if(length(v.attrs) == 2) {
+    tbl<-addmargins(tbl,1)
+    rownames(tbl)[nrow(tbl)]<-c("[TOTAL]")
+  }
+    
+  return(tbl)
 }
