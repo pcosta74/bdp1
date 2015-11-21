@@ -19,7 +19,7 @@ nb.classifier<-function(dataframe, classcol) {
   return(classifier)
 }
 
-nb.predictor<-function(classifier, dataframe, classcol, log.probs=TRUE) {
+nb.predictor<-function(classifier, dataframe, classcol, log.probs=TRUE, pred.col=FALSE) {
   
   list.attrs<-unique(c(names(dataframe), classcol))
   
@@ -31,6 +31,7 @@ nb.predictor<-function(classifier, dataframe, classcol, log.probs=TRUE) {
       prob.tbl<-classifier[[attr]]
       sum.row<-nrow(prob.tbl)
       if(attr == classcol) return(prob.tbl)
+      else if(!row[[attr]] %in% rownames(prob.tbl[-sum.row,])) return(c(0.0000001,0.0000001))
       else return(prob.tbl[-sum.row,][row[[attr]],]/prob.tbl[sum.row,])
     })
     if(log.probs) post.prob<-apply(post.prob, 1, function(r) sum(log(r)))
@@ -38,6 +39,8 @@ nb.predictor<-function(classifier, dataframe, classcol, log.probs=TRUE) {
     return(names(which.max(post.prob)))
   }) 
 
+  if(pred.col)
+    return(dataframe[[classcol]])
   return(dataframe)
 }
 
