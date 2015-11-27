@@ -57,22 +57,22 @@ print.train.info <- function(train.df, pred.df, classifier, classcol) {
   print(df, row.names = FALSE, right = FALSE)
 
   cat("\n\n=== Evaluation model ===\n\n")
-  mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), 
-              classifier[columns!=classcol])
+  lst<-sapply(classifier[columns!=classcol], function(t) return(head(t,-1)))
+  mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
   mtx<-round(rbind(classifier[[classcol]], rep(NA,ncol(mtx)), mtx), digits=5)
-  names<-c("", unlist(sapply(columns[columns!=classcol],
+  names<-c("", unlist(sapply(names(lst),
                       function(c,l) c(c,rep("",nrow(l[[c]]))), 
-                      classifier, USE.NAMES=FALSE)))
+                      lst, USE.NAMES=FALSE)))
   names<-mapply(paste, names, rownames(mtx),sep="  ")
   rownames(mtx)<-seq(1:nrow(mtx))
   df<-format(data.frame(CLASS=names, mtx), justify="left")
   df<-as.data.frame(apply(df,2,function(x) ifelse(sub("\\s+","",x)=="NA","",x)))
   print.data.frame(df, quote=FALSE, row.names=FALSE)
 
-  cm<-table(train.df[[classcol]], pred.df, 
+  cm<-table(train.df[[classcol]], pred.df[[classcol]], 
             dnn = list("value","prediction"))
   
-  cat("\n\n=== Summary ===\n\n")  
+  cat("\n\n=== Summary ===\n")  
   total<-sum(cm)
   mdiag<-sum(diag(cm))
   df<-data.frame(c("Correctly classified:","Incorrectly classified:","Accuracy rate:","Error rate:","Number of instances:"),

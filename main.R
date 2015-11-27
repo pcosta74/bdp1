@@ -15,7 +15,7 @@ run<-function() {
   train.df<-read.data.frame(config$train.file,handle.blanks = 2)
   classifier<-nb.classifier(train.df,config$train.classcol)
   pred.df<-nb.predictor(classifier,train.df,config$train.classcol,
-                        log.probs=config$log.probs,pred.col=TRUE)
+                        log.probs=config$log.probs)
   print.train.info(train.df,pred.df,classifier,config$train.classcol)
   remove(train.df)
   remove(pred.df)
