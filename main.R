@@ -1,29 +1,18 @@
 source('io.R')
 source('naivebayes.R')
 
-config<<-list(
-  train.file="clientes_train.csv",
-  train.classcol="emprestimo",
-  test.file="clientes_test2.csv",
-  test.classcol="emprestimo",
-  outputfile="clientes_pred2.csv",
-  skip.blanks=TRUE,
-  log.probs=TRUE
-)
+run<-function(formula, train.csv, test.csv, out.csv) {
+  train.data<-read.data.frame(train.csv)
+  test.data<-read.data.frame(test.csv)
+  relation<-substr(train.csv,1,regexpr("\\.",train.csv) - 1)
+  pred.data<-naivebayes(relation, formula, train.data, test.data)
+  write.data.frame(pred.data,out.csv)
+}
 
-run<-function() {
-  train.df<-read.data.frame(config$train.file,handle.blanks = 2)
-  classifier<-nb.classifier(train.df,config$train.classcol)
-  pred.df<-nb.predictor(classifier,train.df,config$train.classcol,
-                        log.probs=config$log.probs)
-  print.train.info(train.df,pred.df,classifier,config$train.classcol)
-  remove(train.df)
-  remove(pred.df)
-  
-  test.df<-read.data.frame(config$test.file,handle.blanks = 2)
-  pred.df<-nb.predictor(classifier,test.df,config$test.classcol,
-                        log.probs=config$log.probs)
-  write.data.frame(pred.df,config$outputfile)
-  remove(test.df)
-  remove(pred.df)
+main<-function() {
+  formula<-as.formula("emprestimo ~ .")
+  train<-"clientes_train.csv"
+  test<-"clientes_test2.csv"
+  output<-"clientes_pred2.csv"
+  run(formula, train, test, output)
 }
