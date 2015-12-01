@@ -44,15 +44,16 @@ nb.classifier<-function(classcol, list.attrs, data) {
 }
 
 #
-nb.predictor<-function(classifier, classcol, list.attrs, data, log.probs=TRUE, pred.col=FALSE) {
+nb.predictor<-function(classifier, classcol, list.attrs, data, pred.col=FALSE) {
   
   data[[classcol]]<-apply(data, 1, function(row) {
     post.prob<-sapply(list.attrs, nb.cond.prob, classcol, classifier, row)
     
-    if(log.probs)
-      post.prob<-apply(post.prob, 1, function(r) sum(log(r)))
-    else 
-      post.prob<-apply(post.prob, 1, prod)
+    # Standard definition
+    # post.prob<-apply(post.prob, 1, prod)
+    
+    # Additive approach (sum of logs)
+    post.prob<-apply(post.prob, 1, function(r) sum(log(r)))
     
     return(names(which.max(post.prob)))
   }) 
@@ -75,7 +76,9 @@ nb.distr.table<-function(attr, classcol, data) {
     tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum,"[UNKNOWN]"=function(x) return(0))))
   
   # laplace correction
-  tbl<-(tbl + 1/n.rows) / (n.rows + nrow(tbl)/n.rows)
+  # tbl<-(tbl + 1/n.rows) / (n.rows + nrow(tbl)/n.rows)
+
+  tbl <- tbl /n.rows
   
   return(tbl)
 }
@@ -178,8 +181,8 @@ nb.print.classifier<-function(classifier, classcol) {
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
   mtx<-rbind(classifier[[ndx]], rep(NA,ncol(mtx)), mtx)
-  mtx<-round(mtx,5)
-  
+  mtx<-round(addmargins(mtx,2,FUN=list("TOTAL"=sum)),5)
+
   lst<-sapply(names(lst), function(c,l) c(c,rep("",nrow(l[[c]]))), lst, 
               USE.NAMES=FALSE)
   names<-mapply(paste, c("", unlist(lst)), rownames(mtx),sep="  ")

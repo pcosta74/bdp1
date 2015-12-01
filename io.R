@@ -45,7 +45,12 @@ read.data.frame <- function(path, handle.blanks = 2) {
 # dataframe - the dataframe to write
 # path - the file to write to
 write.data.frame <- function(dataframe,path = "") {
-  write.csv(dataframe, file = path, row.names = FALSE)
-  if(path!="")
+  if(path!="") {
+    write.csv(dataframe, file = path, row.names = FALSE)
     message("writen ",nrow(dataframe), " rows to '",path,"'")
+  }
+  else {
+    cat("=== Result dataset ===\n")
+    print(dataframe, row.names=FALSE)
+  }
 }
