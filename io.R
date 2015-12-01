@@ -50,7 +50,7 @@ write.data.frame <- function(dataframe,path = "") {
     message("writen ",nrow(dataframe), " rows to '",path,"'")
   }
   else {
-    cat("=== Result dataset ===\n")
+    cat("=== Result dataset ===\n\n")
     print(dataframe, row.names=FALSE)
   }
 }
