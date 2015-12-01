@@ -19,11 +19,16 @@ naivebayes<-function(relation, formula, train.data = data.frame(), test.data = d
     stop("Empty attribute list")
   
   classifier<-nb.classifier(classcol, list.attrs, train.data)
-
+  
   pred.data<-nb.predictor(classifier, classcol, list.attrs, train.data)
-  nb.print.train.info(relation, train.data, pred.data, classifier, classcol)
+  conf.matrix<-table(train.data[[classcol]], pred.data[[classcol]], 
+                      dnn = list("value","prediction"))
+  
+  nb.print.train.info(relation, train.data, classcol, conf.matrix, classifier)
   
   pred.data<-nb.predictor(classifier, classcol, list.attrs, test.data)
+  nb.print.predict.info(pred.data, classcol)
+  
   return(pred.data)
 }
 
@@ -92,50 +97,66 @@ nb.cond.prob<-function(attr, classcol, classifier, row) {
   }
 }
 
+nb.print.predict.info<-function(pred.df, classcol) {
 
-nb.print.train.info <- function(relation, train.df, pred.df, classifier, classcol) {
+  cat("=== Prediction information ===\n")
+  t<-table(pred.df[[classcol]])
+  t<-rbind(t,prop.table(t))
+  rownames(t)<-c("Frequency","Percent")
+  print(t)
+  
+  cat("\n\n")
+}
+
+nb.print.train.info <- function(relation, train.df, classcol, conf.matrix, classifier) {
   
   cat("=== Run information ===\n")
-  lbs <- c("relation:","instances:","attributes:","")
-  vls <-c(relation,
-          nrow(train.df), ncol(train.df),
-          paste(names(train.df), collapse = ", "))
-  df <- data.frame(lbs,vls,check.rows = TRUE)
-  colnames(df) <- c(" "," ")
-  print(df, row.names = FALSE, right = FALSE)
+  nb.print.relation.info(relation, train.df)
   
   cat("\n\n=== Evaluation model ===\n\n")
-  lst<-sapply(classifier[names(classifier) != classcol], function(t) return(head(t,-1)))
-  mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
-  mtx<-rbind(classifier[[classcol]], rep(NA,ncol(mtx)), mtx)
-  names<-c("", unlist(sapply(names(lst),
-                             function(c,l) c(c,rep("",nrow(l[[c]]))), 
-                             lst, USE.NAMES=FALSE)))
-  names<-mapply(paste, names, rownames(mtx),sep="  ")
-  rownames(mtx)<-seq(1:nrow(mtx))
-  df<-format(data.frame(CLASS=names, round(mtx,digits = 5)), justify="left")
-  df<-as.data.frame(apply(df,2,function(x) ifelse(sub("\\s+","",x)=="NA","",x)))
-  print.data.frame(df, quote=FALSE, row.names=FALSE)
-  
-  cm<-table(train.df[[classcol]], pred.df[[classcol]], 
-            dnn = list("value","prediction"))
-  
+  nb.print.classifier(classifier, classcol)
+    
   cat("\n\n=== Summary ===\n")  
+  nb.print.cm.summary(conf.matrix)
+    
+  cat("\n\n=== Detailed accuracy by class ===\n\n")
+  nb.print.cm.accuracy(conf.matrix)
+  
+  cat("\n\n=== Confusion matrix===\n\n")
+  print(conf.matrix)
+  
+  cat("\n\n")
+}
+
+nb.print.relation.info<-function(relation, data) {
+  df <- data.frame(
+    c("relation:","instances:","attributes:",""),
+    c(relation, nrow(data), ncol(data), paste(names(data), collapse = ", ")),
+    check.rows = TRUE)
+  colnames(df) <- c(" "," ")
+  print(df, row.names = FALSE, right = FALSE)
+}
+
+nb.print.cm.summary<-function(cm) {
   total<-sum(cm)
   mdiag<-sum(diag(cm))
-  df<-data.frame(c("Correctly classified:","Incorrectly classified:","Accuracy rate:","Error rate:","Number of instances:"),
-                 c(mdiag,total-mdiag, signif(mdiag/total,5), signif(1-(mdiag/total),5),total))
+  df<-data.frame(
+    c("Correctly classified:","Incorrectly classified:","Accuracy rate:","Error rate:","Number of instances:"),
+    c(mdiag,total-mdiag, signif(mdiag/total,5), signif(1-(mdiag/total),5),total)
+  )
   colnames(df)<-c(" "," ")
-  print(format(df,justify = "left"),row.names=FALSE)  
-  
-  cat("\n\n=== Detailed accuracy by class ===\n\n")
-  m<-t(sapply(seq_along(diag(cm)),function(n,cm) {
+  print(format(df,justify = "left"), row.names=FALSE)  
+}
+
+nb.print.cm.accuracy<-function(cm) {
+  mtx<-t(sapply(seq_along(diag(cm)),function(n,cm) {
     tp<-cm[n,n]
     fn<-sum(cm[n,-n])
     fp<-sum(cm[-n,n])
     tn<-sum(cm[-n,-n])
     c(TPR=tp/sum(tp,fn), #sensitivity
       FPR=fp/sum(fp,tn), #fall-out
+      REC=tp/sum(tp,fn), #recall
       PPV=tp/sum(tp,fp), #precision
       TNR=tn/sum(fp,tn), #specificity
       #NVP=tn/sum(tn,fn),
@@ -144,11 +165,27 @@ nb.print.train.info <- function(relation, train.df, pred.df, classifier, classco
       F1S=(2*tp)/sum(2*tp,fp,fn),
       ACC=sum(tp,tn)/sum(tp,fp,fn,fp))
   }, cm))
-  wavg<-apply(apply(cm,1,sum)*m,2,sum)/total
-  m<-signif(rbind(m,c(wavg)), digits = 5)
-  colnames(m)<-c("TP Rate","FP Rate", "Precision", "Specificity", "F1 Score", "Accuracy")
-  print(data.frame(m,row.names=c(rownames(cm),"Weighted Avg.")))
+  wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/sum(cm)
+  mtx<-signif(rbind(mtx,c(wavg)), digits = 5)
+  colnames(mtx)<-c("TP Rate","FP Rate", "Recall", "Precision", "Specificity", "F1 Score", "Accuracy")
+  print(data.frame(mtx,row.names=c(rownames(cm),"Weighted Avg.")))  
+}
+
+nb.print.classifier<-function(classifier, classcol) {
+  ndx<-which(names(classifier) == classcol)
   
-  cat("\n\n=== Confusion matrix===\n\n")
-  print(cm)
+  lst<-sapply(classifier[-ndx], function(t) return(head(t, -1)))
+  
+  mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
+  mtx<-rbind(classifier[[ndx]], rep(NA,ncol(mtx)), mtx)
+  mtx<-round(mtx,5)
+  
+  lst<-sapply(names(lst), function(c,l) c(c,rep("",nrow(l[[c]]))), lst, 
+              USE.NAMES=FALSE)
+  names<-mapply(paste, c("", unlist(lst)), rownames(mtx),sep="  ")
+  rownames(mtx)<-seq(1:nrow(mtx))
+  
+  df<-data.frame(CLASS=names, mtx)
+  df<-as.data.frame(apply(df,2,function(x) ifelse(is.na(x),"",x)))
+  print.data.frame(format(df, justify="left"), quote=FALSE, row.names=FALSE)
 }
