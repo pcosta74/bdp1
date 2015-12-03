@@ -2,52 +2,58 @@
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
 
-naivebayes<-function(relation, formula, train.data = data.frame(), test.data = data.frame()) {
+naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame()) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
-  classcol<-rownames(attr(t,"factors"))[attr(t,"response")]
-  list.attrs<-attr(t,"term.labels")
+  response<-rownames(attr(t,"factors"))[attr(t,"response")]
 
-  if(!classcol %in% names(train.data))
-    stop("Unknown class column: ", classcol)
+  list.attrs<-attr(t,"term.labels")
+  
+  if(!response %in% names(train.data))
+    stop("Unknown class column: ", response)
   
   if(!all(list.attrs %in% names(test.data)))
     stop("Trainning and test dataframes do not match")
   
-  list.attrs <-unique(c(classcol, list.attrs))
-  if(all(list.attrs == classcol))
+  list.attrs <-unique(c(response, list.attrs))
+  attr(list.attrs,"response")<-response
+
+  if(all(list.attrs == response))
     stop("Empty attribute list")
   
-  classifier<-nb.classifier(classcol, list.attrs, train.data)
+  classifier<-nb.classifier(list.attrs, train.data)
   
-  pred.data<-nb.predictor(classifier, classcol, list.attrs, train.data)
-  conf.matrix<-table(train.data[[classcol]], pred.data[[classcol]], 
+  pred.data<-nb.predictor(classifier, list.attrs, train.data)
+  conf.matrix<-table(train.data[[response]], pred.data[[response]], 
                       dnn = list("value","prediction"))
   
-  nb.print.train.info(relation, train.data, classcol, conf.matrix, classifier)
+  nb.print.train.info(train.data, conf.matrix, classifier)
   
-  pred.data<-nb.predictor(classifier, classcol, list.attrs, test.data)
-  nb.print.predict.info(pred.data, classcol)
+  pred.data<-nb.predictor(classifier, list.attrs, test.data)
+  nb.print.predict.info(pred.data, response)
   
   return(pred.data)
 }
 
 #
-nb.classifier<-function(classcol, list.attrs, data) {
+nb.classifier<-function(list.attrs, data) {
 
-  classifier<-sapply(list.attrs, nb.distr.table, classcol, data) 
+  response<-attr(list.attrs,"response")
+  classifier<-sapply(list.attrs, nb.distr.table, response, data) 
 
   if(length(classifier) == 0)
     stop("Unable to create classifier")
   
+  attr(classifier,"response")<-response
   return(classifier)
 }
 
 #
-nb.predictor<-function(classifier, classcol, list.attrs, data, pred.col=FALSE) {
+nb.predictor<-function(classifier, list.attrs, data, pred.col=FALSE) {
   
-  data[[classcol]]<-apply(data, 1, function(row) {
-    post.prob<-sapply(list.attrs, nb.cond.prob, classcol, classifier, row)
+  response<-attr(list.attrs,"response")
+  data[[response]]<-apply(data, 1, function(row) {
+    post.prob<-sapply(list.attrs, nb.cond.prob, response, classifier, row)
     
     # Standard definition
     # post.prob<-apply(post.prob, 1, prod)
@@ -59,17 +65,15 @@ nb.predictor<-function(classifier, classcol, list.attrs, data, pred.col=FALSE) {
   }) 
 
   if(pred.col)
-    return(data[[classcol]])
+    return(data[[response]])
 
   return(data)
 }
 
-nb.distr.table<-function(attr, classcol, data) {
+nb.distr.table<-function(attr, response, data) {
 
-  v.attrs<-unique(c(attr,classcol))
-  n.rows<-nrow(data)
-  
-  tbl<-table(data[,v.attrs], dnn=v.attrs)
+  v.attrs<-unique(c(attr,response))
+  tbl<-table(data[,v.attrs], dnn=v.attrs) / nrow(data)
   
   # for faster calculation later on
   if(length(v.attrs) == 2)
@@ -78,15 +82,13 @@ nb.distr.table<-function(attr, classcol, data) {
   # laplace correction
   # tbl<-(tbl + 1/n.rows) / (n.rows + nrow(tbl)/n.rows)
 
-  tbl <- tbl /n.rows
-  
   return(tbl)
 }
 
-nb.cond.prob<-function(attr, classcol, classifier, row) {
+nb.cond.prob<-function(attr, response, classifier, row) {
   prob.tbl<-classifier[[attr]]
   
-  if(attr == classcol) 
+  if(attr == response) 
     return(prob.tbl)
   else {
     sum.row<-prob.tbl[nrow(prob.tbl)-1,]
@@ -100,24 +102,25 @@ nb.cond.prob<-function(attr, classcol, classifier, row) {
   }
 }
 
-nb.print.predict.info<-function(pred.df, classcol) {
+nb.print.predict.info<-function(pred.df, response) {
 
-  cat("=== Prediction information ===\n")
-  t<-table(pred.df[[classcol]])
-  t<-rbind(t,prop.table(t))
+  cat("=== Prediction information ===\n\n")
+  t<-table(pred.df[[response]])
+  t<-rbind(t, prop.table(t))
+  t<-round(t, digits = 5)
   rownames(t)<-c("Frequency","Percent")
   print(t)
   
   cat("\n\n")
 }
 
-nb.print.train.info <- function(relation, train.df, classcol, conf.matrix, classifier) {
+nb.print.train.info <- function(data, conf.matrix, classifier) {
   
   cat("=== Run information ===\n")
-  nb.print.relation.info(relation, train.df)
+  nb.print.relation.info(data)
   
   cat("\n\n=== Evaluation model ===\n\n")
-  nb.print.classifier(classifier, classcol)
+  nb.print.classifier(classifier)
     
   cat("\n\n=== Summary ===\n")  
   nb.print.cm.summary(conf.matrix)
@@ -131,10 +134,10 @@ nb.print.train.info <- function(relation, train.df, classcol, conf.matrix, class
   cat("\n\n")
 }
 
-nb.print.relation.info<-function(relation, data) {
+nb.print.relation.info<-function(data) {
   df <- data.frame(
     c("relation:","instances:","attributes:",""),
-    c(relation, nrow(data), ncol(data), paste(names(data), collapse = ", ")),
+    c(attr(data,"relation"), nrow(data), ncol(data), paste(names(data),collapse = ", ")),
     check.rows = TRUE)
   colnames(df) <- c(" "," ")
   print(df, row.names = FALSE, right = FALSE)
@@ -159,8 +162,8 @@ nb.print.cm.accuracy<-function(cm) {
     tn<-sum(cm[-n,-n])
     c(TPR=tp/sum(tp,fn), #sensitivity
       FPR=fp/sum(fp,tn), #fall-out
-      REC=tp/sum(tp,fn), #recall
       PPV=tp/sum(tp,fp), #precision
+      REC=tp/sum(tp,fn), #recall
       TNR=tn/sum(fp,tn), #specificity
       #NVP=tn/sum(tn,fn),
       #FDR=fp/sum(fp,tp),
@@ -170,25 +173,26 @@ nb.print.cm.accuracy<-function(cm) {
   }, cm))
   wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/sum(cm)
   mtx<-signif(rbind(mtx,c(wavg)), digits = 5)
-  colnames(mtx)<-c("TP Rate","FP Rate", "Recall", "Precision", "Specificity", "F1 Score", "Accuracy")
+  colnames(mtx)<-c("TP Rate","FP Rate", "Precision", "Recall", "Specificity", "F1 Score", "Accuracy")
   print(data.frame(mtx,row.names=c(rownames(cm),"Weighted Avg.")))  
 }
 
-nb.print.classifier<-function(classifier, classcol) {
-  ndx<-which(names(classifier) == classcol)
+nb.print.classifier<-function(classifier) {
+  ndx<-which(names(classifier) == attr(classifier,"response"))
   
   lst<-sapply(classifier[-ndx], function(t) return(head(t, -1)))
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
   mtx<-rbind(classifier[[ndx]], rep(NA,ncol(mtx)), mtx)
-  mtx<-round(addmargins(mtx,2,FUN=list("TOTAL"=sum)),5)
+  mtx<-round(addmargins(mtx,2,FUN=list("[TOTAL]"=sum)),5)
 
   lst<-sapply(names(lst), function(c,l) c(c,rep("",nrow(l[[c]]))), lst, 
               USE.NAMES=FALSE)
   names<-mapply(paste, c("", unlist(lst)), rownames(mtx),sep="  ")
   rownames(mtx)<-seq(1:nrow(mtx))
   
-  df<-data.frame(CLASS=names, mtx)
+  df<-data.frame(names, mtx)
+  names(df)<-c("CLASS",colnames(mtx))
   df<-as.data.frame(apply(df,2,function(x) ifelse(is.na(x),"",x)))
   print.data.frame(format(df, justify="left"), quote=FALSE, row.names=FALSE)
 }

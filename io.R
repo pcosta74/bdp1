@@ -5,6 +5,7 @@ source('common.R')
 # handle.blanks - how to handle lines with blank cells { 0-raise error, 1-skip lines, 2-use most commons values in column }
 read.data.frame <- function(path, handle.blanks = 2) {
   dataframe <- read.csv(path,header = TRUE, na.strings = c("",NA), strip.white = TRUE)
+  attr(dataframe, "relation")<-substr(path,1,regexpr("\\.",path) - 1)
   
   if (is.empty.data.frame(dataframe))
     stop("Empty data frame ", basename(path))
