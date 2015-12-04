@@ -18,7 +18,7 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
   if(is.numeric(sample.percent) & 0 < sample.percent & sample.percent < 1)
     sample.percent <- round(round(sample.percent * 100, digits=0))
   else
-    stop("invalid sampling percentage: ", sample.percent)
+    stop("Invalid sampling percentage: ", sample.percent)
   
   list.attrs <-unique(c(response, list.attrs))
   attr(list.attrs,"response")<-response
