@@ -13,5 +13,5 @@ main<-function() {
   train<-"clientes_train.csv"
   pred<-"clientes_test.csv"
   output<-"clientes_pred.csv"
-  run(formula, train, test, output)
+  run(formula, train, pred, output)
 }
