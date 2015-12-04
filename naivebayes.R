@@ -15,10 +15,18 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
   if(!all(list.attrs %in% names(test.data)))
     stop("Trainning and test dataframes do not match")
     
-  if(is.numeric(sample.percent) & 0 < sample.percent & sample.percent < 1)
-    sample.percent <- round(round(sample.percent * 100, digits=0))
-  else
-    stop("Invalid sampling percentage: ", sample.percent)
+  sample.data<-train.data
+  if(is.numeric(sample.percent)) {
+    if(0 < sample.percent & sample.percent < 1) {
+      n.rows<-round(nrow(train.data)*sample.percent,digits=0)
+      sample<-sort(sample(1:nrow(train.data), n.rows))
+
+      sample.data<-train.data[sample,]
+      train.data<-train.data[-sample,]
+    }
+    else if(sample.percent != 1)
+      stop("Invalid sampling percentage: ", sample.percent)
+  } 
   
   list.attrs <-unique(c(response, list.attrs))
   attr(list.attrs,"response")<-response
@@ -26,10 +34,6 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
   if(all(list.attrs == response))
     stop("Empty attribute list")
   
-  sample<-sort(sample(1:nrow(train.data), sample.percent))
-  sample.data<-train.data[sample,]
-  train.data<-train.data[-sample,]
-
   classifier<-nb.classifier(list.attrs, train.data)
   pred.data<-nb.predictor(classifier, list.attrs, sample.data)
   

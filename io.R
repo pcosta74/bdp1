@@ -34,16 +34,13 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
   message("read ",nrow(dataframe), " rows from '",path,"'")
   return(dataframe)
 }  
-  message("read ",nrow(dataframe), " rows from '",path,"'")
-  return(dataframe)
-}
 
 # write the data frame to a file
 # dataframe - the dataframe to write
 # path - the file to write to
-write.data.frame <- function(dataframe,path = "", sep = ",", quote = "\"", dec = ".") {
+write.data.frame <- function(dataframe,path = "") {
   if(path!="") {
-    write.csv(dataframe, file = path, row.names = FALSE, sep = sep, quote = quote, dec = dec)
+    write.csv(dataframe, file = path, row.names = FALSE)
     message("writen ",nrow(dataframe), " rows to '",path,"'")
   }
   else {
