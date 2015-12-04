@@ -2,7 +2,7 @@
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
 
-naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(), percent.split=0.7) {
+naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(), percent.split=1) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
   response<-rownames(attr(t,"factors"))[attr(t,"response")]
