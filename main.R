@@ -11,7 +11,7 @@ run<-function(formula, train.csv, test.csv, out.csv) {
 main<-function() {
   formula<-as.formula("emprestimo ~ .")
   train<-"clientes_train.csv"
-  test<-"clientes_test2.csv"
-  output<-"clientes_pred2.csv"
+  pred<-"clientes_test.csv"
+  output<-"clientes_pred.csv"
   run(formula, train, test, output)
 }

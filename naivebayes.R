@@ -2,7 +2,7 @@
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
 
-naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(), sample.percent=0.3) {
+naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(), percent.split=0.7) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
   response<-rownames(attr(t,"factors"))[attr(t,"response")]
@@ -16,16 +16,16 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
     stop("Trainning and test dataframes do not match")
     
   sample.data<-train.data
-  if(is.numeric(sample.percent)) {
-    if(0 < sample.percent & sample.percent < 1) {
-      n.rows<-round(nrow(train.data)*sample.percent,digits=0)
+  if(is.numeric(percent.split)) {
+    if(0 < percent.split & percent.split < 1) {
+      n.rows<-round(nrow(train.data)*(1-percent.split),digits=0)
       sample<-sort(sample(1:nrow(train.data), n.rows))
 
       sample.data<-train.data[sample,]
       train.data<-train.data[-sample,]
     }
-    else if(sample.percent != 1)
-      stop("Invalid sampling percentage: ", sample.percent)
+    else if(percent.split != 1)
+      stop("Invalid sampling percentage: ", percent.split)
   } 
   
   list.attrs <-unique(c(response, list.attrs))
@@ -62,39 +62,32 @@ nb.classifier<-function(list.attrs, data) {
 }
 
 #
-nb.predictor<-function(classifier, list.attrs, data, pred.col=FALSE) {
+nb.predictor<-function(classifier, list.attrs, data) {
   
   response<-attr(list.attrs,"response")
+    
   data[[response]]<-apply(data, 1, function(row) {
     post.prob<-sapply(list.attrs, nb.cond.prob, response, classifier, row)
     
-    # Standard definition
-    # post.prob<-apply(post.prob, 1, prod)
-    
     # Additive approach (sum of logs)
-    post.prob<-apply(post.prob, 1, function(r) sum(log(r)))
-    
-    return(names(which.max(post.prob)))
+    log.prob<-apply(post.prob, 1, function(r) sum(log(r)))
+    label<-names(which.max(log.prob))
+
+    return(label)
   }) 
-
-  if(pred.col)
-    return(data[[response]])
-
+  
   return(data)
 }
 
 nb.distr.table<-function(attr, response, data) {
 
   v.attrs<-unique(c(attr,response))
-  tbl<-table(data[,v.attrs], dnn=v.attrs) / nrow(data)
+  tbl<-table(data[,v.attrs], dnn=v.attrs) + 1
   
   # for faster calculation later on
   if(length(v.attrs) == 2)
-    tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum,"[UNKNOWN]"=function(x) return(0))))
+    tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum,"[UNKNOWN]"=function(x) return(1))))
   
-  # laplace correction
-  # tbl<-(tbl + 1/n.rows) / (n.rows + nrow(tbl)/n.rows)
-
   return(tbl)
 }
 
@@ -197,7 +190,6 @@ nb.print.classifier<-function(classifier) {
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
   mtx<-rbind(classifier[[ndx]], rep(NA,ncol(mtx)), mtx)
-  mtx<-round(addmargins(mtx,2,FUN=list("[TOTAL]"=sum)),5)
 
   lst<-sapply(names(lst), function(c,l) c(c,rep("",nrow(l[[c]]))), lst, 
               USE.NAMES=FALSE)
