@@ -2,7 +2,7 @@
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
 
-naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame()) {
+naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(), sample.percent=0.3) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
   response<-rownames(attr(t,"factors"))[attr(t,"response")]
@@ -14,6 +14,11 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
   
   if(!all(list.attrs %in% names(test.data)))
     stop("Trainning and test dataframes do not match")
+    
+  if(is.numeric(sample.percent) & 0 < sample.percent & sample.percent < 1)
+    sample.percent <- round(round(sample.percent * 100, digits=0))
+  else
+    stop("invalid sampling percentage: ", sample.percent)
   
   list.attrs <-unique(c(response, list.attrs))
   attr(list.attrs,"response")<-response
@@ -21,11 +26,15 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
   if(all(list.attrs == response))
     stop("Empty attribute list")
   
+  sample<-sort(sample(1:nrow(train.data), sample.percent))
+  sample.data<-train.data[sample,]
+  train.data<-train.data[-sample,]
+
   classifier<-nb.classifier(list.attrs, train.data)
+  pred.data<-nb.predictor(classifier, list.attrs, sample.data)
   
-  pred.data<-nb.predictor(classifier, list.attrs, train.data)
-  conf.matrix<-table(train.data[[response]], pred.data[[response]], 
-                      dnn = list("value","prediction"))
+  conf.matrix<-table(sample.data[[response]], pred.data[[response]], 
+                     dnn = list("value","prediction"))
   
   nb.print.train.info(train.data, conf.matrix, classifier)
   
