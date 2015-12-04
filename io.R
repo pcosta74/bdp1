@@ -3,11 +3,11 @@ source('common.R')
 # Read a CVS file into a data frame
 # path - path to the CVS file
 # handle.blanks - how to handle lines with blank cells { 0-raise error, 1-skip lines, 2-use most commons values in column }
-read.data.frame <- function(path, blank.strings = NULL) {
+read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ",", quote = "\"", dec = ".") {
   if(is.character(blank.strings) | is.vector(blank.strings))
     blank.strings<-unique(c(blank.strings,NA))
   
-  dataframe <- read.csv(path,header = TRUE, na.strings = blank.strings, strip.white = TRUE)
+  dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = blank.strings, strip.white = TRUE)
   attr(dataframe, "relation")<-substr(path,1,regexpr("\\.",path) - 1)
   
   if (is.empty.data.frame(dataframe))
@@ -41,9 +41,9 @@ read.data.frame <- function(path, blank.strings = NULL) {
 # write the data frame to a file
 # dataframe - the dataframe to write
 # path - the file to write to
-write.data.frame <- function(dataframe,path = "") {
+write.data.frame <- function(dataframe,path = "", sep = ",", quote = "\"", dec = ".") {
   if(path!="") {
-    write.csv(dataframe, file = path, row.names = FALSE)
+    write.csv(dataframe, file = path, row.names = FALSE, sep = sep, quote = quote, dec = dec)
     message("writen ",nrow(dataframe), " rows to '",path,"'")
   }
   else {
