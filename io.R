@@ -26,7 +26,6 @@ read.data.frame <- function(path, blank.strings = NULL) {
        dataframe <- na.omit(dataframe)
     } else {
       warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)
-      warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)
       common.vals<-apply(dataframe,2,function(c) levels(factor(c))[which.max(summary(factor(c[!is.na(c)])))])
       dataframe<-as.data.frame(t(apply(dataframe,1,function(c,cv) ifelse(is.na(c),cv[names(c)[is.na(c)]],c), common.vals)))
     } 
