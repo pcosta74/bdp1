@@ -17,3 +17,4 @@ is.empty.data.frame<-function(data.frame) {
   
   return (length(data.frame) < 1)
 }
+

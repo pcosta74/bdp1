@@ -1,8 +1,9 @@
+source('common.R')
+
 # Cond. Prob:  P(A|B) = P(A&B)/P(B)
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
-
-naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(), percent.split=1) {
+naivebayes<-function(formula, train.data = data.frame(), pred.data = data.frame(), percent.split=1) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
   response<-rownames(attr(t,"factors"))[attr(t,"response")]
@@ -11,10 +12,16 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
   
   if(!response %in% names(train.data))
     stop("Unknown class column: ", response)
+
+  if(all(list.attrs == response))
+    stop("Empty attribute list")
   
-  if(!all(list.attrs %in% names(test.data)))
+  if(!all(list.attrs %in% names(pred.data)))
     stop("Trainning and test dataframes do not match")
-    
+
+  list.attrs <-unique(c(response, list.attrs))
+  attr(list.attrs,"response")<-response
+  
   sample.data<-train.data
   if(is.numeric(percent.split)) {
     if(0 < percent.split & percent.split < 1) {
@@ -23,26 +30,21 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
 
       sample.data<-train.data[sample,]
       train.data<-train.data[-sample,]
+      test.mode<-paste("split ",(1-percent.split)*100,"% train, remaider test")
     }
-    else if(percent.split != 1)
+    else if(percent.split == 1)
+      test.mode<-"evaluate on training data"
+    else
       stop("Invalid sampling percentage: ", percent.split)
+    
+    attr(train.data,"test.mode")<-test.mode
   } 
   
-  list.attrs <-unique(c(response, list.attrs))
-  attr(list.attrs,"response")<-response
-
-  if(all(list.attrs == response))
-    stop("Empty attribute list")
-  
   classifier<-nb.classifier(list.attrs, train.data)
-  pred.data<-nb.predictor(classifier, list.attrs, sample.data)
+  test.data<-nb.predictor(classifier, list.attrs, sample.data, output.prob=TRUE)
+  nb.print.train.info(classifier, train.data, sample.data, test.data)
   
-  conf.matrix<-table(sample.data[[response]], pred.data[[response]], 
-                     dnn = list("value","prediction"))
-  
-  nb.print.train.info(train.data, conf.matrix, classifier)
-  
-  pred.data<-nb.predictor(classifier, list.attrs, test.data)
+  pred.data<-nb.predictor(classifier, list.attrs, pred.data)
   nb.print.predict.info(pred.data, response)
   
   return(pred.data)
@@ -51,31 +53,52 @@ naivebayes<-function(formula, train.data = data.frame(), test.data = data.frame(
 #
 nb.classifier<-function(list.attrs, data) {
 
+  time<-Sys.time()
   response<-attr(list.attrs,"response")
   classifier<-sapply(list.attrs, nb.distr.table, response, data) 
-
+  time<-capture.output(Sys.time()-time)
+  
   if(length(classifier) == 0)
     stop("Unable to create classifier")
   
   attr(classifier,"response")<-response
+  attr(classifier,"train.time")<-sub("Time difference of ","",time)
   return(classifier)
 }
 
 #
-nb.predictor<-function(classifier, list.attrs, data) {
+nb.predictor<-function(classifier, list.attrs, data, output.prob=FALSE) {
   
   response<-attr(list.attrs,"response")
     
-  data[[response]]<-apply(data, 1, function(row) {
+  result<-apply(data, 1, function(row) {
     post.prob<-sapply(list.attrs, nb.cond.prob, response, classifier, row)
+    
+    # Classic definiion
+    std.prob<-apply(post.prob,1,prod)
+    std.prob<-std.prob/sum(std.prob)
     
     # Additive approach (sum of logs)
     log.prob<-apply(post.prob, 1, function(r) sum(log(r)))
     label<-names(which.max(log.prob))
 
-    return(label)
-  }) 
+    if(output.prob == TRUE) {
+      result<-c(label,unlist(std.prob))
+      names(result)<-c(response,nb.prob.colname(names(std.prob)))
+      return(result)
+    }
+    
+    return(factor(label))
+  })
   
+  if(output.prob == TRUE) {
+    data[,rownames(result)]<-t(result)
+    data[,rownames(result)]<-as.data.frame(sapply(data[,rownames(result)],factor))
+  }
+  else
+    data[[response]]<-result
+  
+  attr(data,"response")<-response
   return(data)
 }
 
@@ -86,7 +109,7 @@ nb.distr.table<-function(attr, response, data) {
   
   # for faster calculation later on
   if(length(v.attrs) == 2)
-    tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum,"[UNKNOWN]"=function(x) return(1))))
+    tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum)))
   
   return(tbl)
 }
@@ -97,42 +120,75 @@ nb.cond.prob<-function(attr, response, classifier, row) {
   if(attr == response) 
     return(prob.tbl)
   else {
-    sum.row<-prob.tbl[nrow(prob.tbl)-1,]
-    unk.row<-prob.tbl[nrow(prob.tbl),]
-    prob.tbl<-head(prob.tbl,-2)
+    sum.row<-prob.tbl[nrow(prob.tbl),]
+    prob.tbl<-head(prob.tbl,-1)
     rslt<-tryCatch(
       { return(prob.tbl[row[[attr]],]/sum.row) },
-      error=function(e) { return(unk.row) }
+      error=function(e) { return(rep(1,ncol(prob.tbl))) }
     )
     return(rslt)
   }
 }
 
-nb.print.predict.info<-function(pred.df, response) {
+nb.roc_auc<-function(xpt, pred.distr) {
+  classnames<-levels(xpt)
+  result<-sapply(classnames,function(c,df) {
+      col<-nb.prob.colname(c)
+      df<-df[order(df[,col],decreasing=TRUE),c("xpt",col)]
+      r2<-sum(which(df$xpt != c))
+      n1<-nrow(df[df$xpt == c,])
+      n2<-nrow(df[df$xpt != c,])
+      u2<-r2-(n2*(n2+1))/2
+      return(u2/(n1*n2))
+    }, data.frame(xpt,pred.distr))
+  names(result)<-classnames
+  return(result)
+}
 
+nb.print.predict.info<-function(pred.df, time) {
+
+  response<-attr(pred.df,"response")
+  
   cat("=== Prediction information ===\n\n")
   t<-table(pred.df[[response]])
-  t<-rbind(t, prop.table(t))
-  t<-round(t, digits = 5)
-  rownames(t)<-c("Frequency","Percent")
+  t<-round(rbind(prop.table(t), t), digits = 2)
+  rownames(t)<-c("%","")
   print(t)
   
   cat("\n\n")
 }
 
-nb.print.train.info <- function(data, conf.matrix, classifier) {
+nb.print.train.info <- function(classifier, train.data, sample.data, test.data) {
+
+  response<-attr(classifier,"response")
   
+  l<-unique(c(levels(sample.data[[response]]),
+              levels(test.data[[response]])))
+  conf.matrix<-table(factor(sample.data[[response]], levels=l),
+                     factor(test.data[[response]], levels=l), 
+                     dnn = list("value","prediction"))
+  
+  prd.distr<-test.data[,(ncol(sample.data)+1):ncol(test.data)]
+  prd.distr<-apply(prd.distr,2,as.numeric)
+  
+  xpt.distr<-matrix(0,nrow(prd.distr),ncol(prd.distr),dimnames=dimnames(prd.distr))
+  xpt.distr<-t(sapply(seq(1:nrow(xpt.distr)), 
+                function(i,r,m) { m[i,r[i]]<-1; return(m[i,]) },
+                nb.prob.colname(sample.data[[response]]), xpt.distr))
+  
+  roc.auc<-nb.roc_auc(sample.data[[response]], prd.distr)
+
   cat("=== Run information ===\n")
-  nb.print.relation.info(data)
+  nb.print.relation.info(train.data)
   
   cat("\n\n=== Evaluation model ===\n\n")
   nb.print.classifier(classifier)
     
   cat("\n\n=== Summary ===\n")  
-  nb.print.cm.summary(conf.matrix)
+  nb.print.summary(conf.matrix, xpt.distr, prd.distr)
     
   cat("\n\n=== Detailed accuracy by class ===\n\n")
-  nb.print.cm.accuracy(conf.matrix)
+  nb.print.cm.accuracy(conf.matrix, roc.auc)
   
   cat("\n\n=== Confusion matrix===\n\n")
   print(conf.matrix)
@@ -141,27 +197,43 @@ nb.print.train.info <- function(data, conf.matrix, classifier) {
 }
 
 nb.print.relation.info<-function(data) {
+  n<-nchar(max(nrow(data),ncol(data)))
   df <- data.frame(
-    c("relation:","instances:","attributes:",""),
-    c(attr(data,"relation"), nrow(data), ncol(data), paste(names(data),collapse = ", ")),
+    c("relation:","instances:","attributes:","","test mode:"),
+    c(attr(data,"relation"), 
+      format(nrow(data),width=n,trim=FALSE,justify="right"),
+      format(ncol(data),width=n,trim=FALSE,justify="right"), 
+      paste(names(data),collapse = ", "),
+      attr(data,"test.mode")),
     check.rows = TRUE)
   colnames(df) <- c(" "," ")
   print(df, row.names = FALSE, right = FALSE)
 }
 
-nb.print.cm.summary<-function(cm) {
+nb.print.summary<-function(cm, xd, pd) {
   total<-sum(cm)
   mdiag<-sum(diag(cm))
+  ratio<-mdiag/total
+  
+  s1<-sum(abs(pd-xd)/ncol(pd))
+  s2<-sum((pd-xd)^2/ncol(pd))
+      
+  mae<-round(s1/nrow(pd), digits=4)
+  rmse<-round(sqrt(s2/nrow(pd)), digits=4)
+  
   df<-data.frame(
-    c("Correctly classified:","Incorrectly classified:","Accuracy rate:","Error rate:","Number of instances:"),
-    c(mdiag,total-mdiag, signif(mdiag/total,5), signif(1-(mdiag/total),5),total)
+    c("Correctly classified:","Incorrectly classified:",
+      "Mean absolute error:", "Root mean squared error:",
+      "Number of instances:"),
+    c(round(mdiag), total-mdiag, mae, rmse, total),
+    c(paste(round(ratio,2),"%",sep=""),paste(round(1-ratio,2),"%",sep=""),rep("",2),"")
   )
-  colnames(df)<-c(" "," ")
+  colnames(df)<-c(" "," ", " ")
   print(format(df,justify = "left"), row.names=FALSE)  
 }
 
-nb.print.cm.accuracy<-function(cm) {
-  mtx<-t(sapply(seq_along(diag(cm)),function(n,cm) {
+nb.print.cm.accuracy<-function(cm,ra) {
+  mtx<-t(sapply(seq_along(diag(cm)),function(n,cm,ra) {
     tp<-cm[n,n]
     fn<-sum(cm[n,-n])
     fp<-sum(cm[-n,n])
@@ -175,29 +247,37 @@ nb.print.cm.accuracy<-function(cm) {
       #FDR=fp/sum(fp,tp),
       #FNR=fn/sum(fn,tp), #miss-rate
       F1S=(2*tp)/sum(2*tp,fp,fn),
+      AUC=ra[n],
       ACC=sum(tp,tn)/sum(tp,fp,fn,fp))
-  }, cm))
+  }, cm, ra))
   wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/sum(cm)
-  mtx<-signif(rbind(mtx,c(wavg)), digits = 5)
-  colnames(mtx)<-c("TP Rate","FP Rate", "Precision", "Recall", "Specificity", "F1 Score", "Accuracy")
+  mtx<-round(rbind(mtx,wavg), digits = 3)
+  colnames(mtx)<-c("TP Rate","FP Rate", "Precision", "Recall", "Specificity", "F1 Score", "ROC AUC", "Accuracy")
   print(data.frame(mtx,row.names=c(rownames(cm),"Weighted Avg.")))  
 }
 
 nb.print.classifier<-function(classifier) {
   ndx<-which(names(classifier) == attr(classifier,"response"))
   
-  lst<-sapply(classifier[-ndx], function(t) return(head(t, -1)))
+  lst<-classifier[-ndx]
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
-  mtx<-rbind(classifier[[ndx]], rep(NA,ncol(mtx)), mtx)
+  mtx<-rbind(round(classifier[[ndx]]/sum(classifier[[ndx]]),digits=2), 
+             classifier[[ndx]],rep(NA,ncol(mtx)), mtx)
 
   lst<-sapply(names(lst), function(c,l) c(c,rep("",nrow(l[[c]]))), lst, 
               USE.NAMES=FALSE)
-  names<-mapply(paste, c("", unlist(lst)), rownames(mtx),sep="  ")
+  names<-mapply(paste, c("%","", unlist(lst)), rownames(mtx),sep="  ")
   rownames(mtx)<-seq(1:nrow(mtx))
   
   df<-data.frame(names, mtx)
   names(df)<-c("CLASS",colnames(mtx))
   df<-as.data.frame(apply(df,2,function(x) ifelse(is.na(x),"",x)))
   print.data.frame(format(df, justify="left"), quote=FALSE, row.names=FALSE)
+  
+  cat("\nTime taken to build model: ", attr(classifier,"train.time"))
+}
+
+nb.prob.colname<-function(c) {
+  return(paste("P.",c,sep=""))
 }

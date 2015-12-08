@@ -8,7 +8,6 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
     blank.strings<-unique(c(blank.strings,NA))
   
   dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = blank.strings, strip.white = TRUE)
-  attr(dataframe, "relation")<-substr(path,1,regexpr("\\.",path) - 1)
   
   if (is.empty.data.frame(dataframe))
     stop("Empty data frame ", basename(path))
@@ -30,6 +29,9 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
       dataframe<-as.data.frame(t(apply(dataframe,1,function(c,cv) ifelse(is.na(c),cv[names(c)[is.na(c)]],c), common.vals)))
     } 
   }
+  
+  filename<-basename(path)
+  attr(dataframe, "relation")<-substr(filename,1,regexpr("\\.",filename) - 1)
   
   message("read ",nrow(dataframe), " rows from '",path,"'")
   return(dataframe)
