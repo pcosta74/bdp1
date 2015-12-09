@@ -22,15 +22,15 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = data.frame(
   list.attrs <-unique(c(response, list.attrs))
   attr(list.attrs,"response")<-response
   
-  sample.data<-train.data
+  test.data<-train.data
   if(is.numeric(percent.split)) {
     if(0 < percent.split & percent.split < 1) {
-      n.rows<-round(nrow(train.data)*(1-percent.split),digits=0)
+      n.rows<-round(nrow(train.data)*percent.split,digits=0)
       sample<-sort(sample(1:nrow(train.data), n.rows))
 
-      sample.data<-train.data[sample,]
-      train.data<-train.data[-sample,]
-      test.mode<-paste("split ",(1-percent.split)*100,"% train, remaider test")
+      test.data<-train.data[-sample,]
+      train.data<-train.data[sample,]
+      test.mode<-paste("split ",percent.split*100,"% train, remaider test")
     }
     else if(percent.split == 1)
       test.mode<-"evaluate on training data"
@@ -41,11 +41,14 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = data.frame(
   } 
   
   classifier<-nb.classifier(list.attrs, train.data)
-  test.data<-nb.predictor(classifier, list.attrs, sample.data, output.prob=TRUE)
-  nb.print.train.info(classifier, train.data, sample.data, test.data)
+  tpred.data<-nb.predictor(classifier, list.attrs, test.data, output.prob=TRUE)
+  nb.print.train.info(classifier, train.data, test.data, tpred.data)
+  
+  rm(test.data)
+  rm(tpred.data)
   
   pred.data<-nb.predictor(classifier, list.attrs, pred.data)
-  nb.print.predict.info(pred.data, response)
+  nb.print.predict.info(pred.data, names(classifier[[response]]))
   
   return(pred.data)
 }
@@ -61,6 +64,7 @@ nb.classifier<-function(list.attrs, data) {
   if(length(classifier) == 0)
     stop("Unable to create classifier")
   
+  attr(data,"response")<-response
   attr(classifier,"response")<-response
   attr(classifier,"train.time")<-sub("Time difference of ","",time)
   return(classifier)
@@ -145,12 +149,12 @@ nb.roc_auc<-function(xpt, pred.distr) {
   return(result)
 }
 
-nb.print.predict.info<-function(pred.df, time) {
+nb.print.predict.info<-function(data, levels) {
 
-  response<-attr(pred.df,"response")
+  response<-attr(data,"response")
   
   cat("=== Prediction information ===\n\n")
-  t<-table(pred.df[[response]])
+  t<-table(factor(data[[response]],levels=levels))
   t<-round(rbind(prop.table(t), t), digits = 2)
   rownames(t)<-c("%","")
   print(t)
@@ -158,25 +162,24 @@ nb.print.predict.info<-function(pred.df, time) {
   cat("\n\n")
 }
 
-nb.print.train.info <- function(classifier, train.data, sample.data, test.data) {
+nb.print.train.info <- function(classifier, train.data, test.data, pred.data) {
 
   response<-attr(classifier,"response")
   
-  l<-unique(c(levels(sample.data[[response]]),
-              levels(test.data[[response]])))
-  conf.matrix<-table(factor(sample.data[[response]], levels=l),
-                     factor(test.data[[response]], levels=l), 
+  l<-levels(train.data[[response]])
+  conf.matrix<-table(factor(test.data[[response]], levels=l),
+                     factor(pred.data[[response]], levels=l), 
                      dnn = list("value","prediction"))
   
-  prd.distr<-test.data[,(ncol(sample.data)+1):ncol(test.data)]
+  prd.distr<-pred.data[,(ncol(test.data)+1):ncol(pred.data)]
   prd.distr<-apply(prd.distr,2,as.numeric)
   
   xpt.distr<-matrix(0,nrow(prd.distr),ncol(prd.distr),dimnames=dimnames(prd.distr))
   xpt.distr<-t(sapply(seq(1:nrow(xpt.distr)), 
                 function(i,r,m) { m[i,r[i]]<-1; return(m[i,]) },
-                nb.prob.colname(sample.data[[response]]), xpt.distr))
+                nb.prob.colname(test.data[[response]]), xpt.distr))
   
-  roc.auc<-nb.roc_auc(sample.data[[response]], prd.distr)
+  roc.auc<-nb.roc_auc(test.data[[response]], prd.distr)
 
   cat("=== Run information ===\n")
   nb.print.relation.info(train.data)
