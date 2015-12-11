@@ -139,13 +139,16 @@ nb.roc_auc<-function(xpt, pred.distr) {
   result<-sapply(classnames,function(c,df) {
       col<-nb.prob.colname(c)
       df<-df[order(df[,col],decreasing=TRUE),c("xpt",col)]
-      r2<-sum(which(df$xpt != c))
-      n1<-nrow(df[df$xpt == c,])
-      n2<-nrow(df[df$xpt != c,])
+      cc<-df$xpt == c
+      nc<-df$xpt != c
+      r2<-sum(which(nc))
+      n1<-nrow(df[cc,])
+      n2<-nrow(df[nc,])
       u2<-r2-(n2*(n2+1))/2
-      return(u2/(n1*n2))
-    }, data.frame(xpt,pred.distr))
-  names(result)<-classnames
+      vY<-cumsum(cc)/sum(cc)
+      vX<-cumsum(nc)/sum(nc)
+      return(list(auc=u2/(n1*n2),vX=vX,vY=vY))
+  }, data.frame(xpt,pred.distr), simplify=FALSE)
   return(result)
 }
 
@@ -181,6 +184,8 @@ nb.print.train.info <- function(classifier, train.data, test.data, pred.data) {
   
   roc.auc<-nb.roc_auc(test.data[[response]], prd.distr)
 
+  nb.plot_roc(roc.auc)
+  
   cat("=== Run information ===\n")
   nb.print.relation.info(train.data)
   
@@ -250,7 +255,7 @@ nb.print.cm.accuracy<-function(cm,ra) {
       #FDR=fp/sum(fp,tp),
       #FNR=fn/sum(fn,tp), #miss-rate
       F1S=(2*tp)/sum(2*tp,fp,fn),
-      AUC=ra[n],
+      AUC=ra[[n]]$auc,
       ACC=sum(tp,tn)/sum(tp,fp,fn,fp))
   }, cm, ra))
   wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/sum(cm)
@@ -279,6 +284,21 @@ nb.print.classifier<-function(classifier) {
   print.data.frame(format(df, justify="left"), quote=FALSE, row.names=FALSE)
   
   cat("\nTime taken to build model: ", attr(classifier,"train.time"))
+}
+
+nb.plot_roc<-function(ra) {
+  plot(0, 0, type = "l", xlim=c(0,1), ylim=c(0,1),
+       xlab = "False Positive Rate", ylab = "True Positive Rate", main = "ROC")
+  axis(1, seq(0.0,1.0,0.1))
+  axis(2, seq(0.0,1.0,0.1))
+  abline(h=seq(0.0,1.0,0.1), v=seq(0.0,1.0,0.1), col="gray", lty=3)
+  abline(0,1, col="darkgray", lty=2)
+  
+  cl<-rainbow(length(ra))
+  for(k in seq_along(ra)) {
+    lines(ra[[k]]$vX,ra[[k]]$vY, col = cl[k], type = 'l')
+  }
+  legend(0.7, 0.3, names(ra), lty=c(1,1), lwd=c(2.5,2.5), col=cl, title = "AUC")
 }
 
 nb.prob.colname<-function(c) {
