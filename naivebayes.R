@@ -3,7 +3,7 @@ source('common.R')
 # Cond. Prob:  P(A|B) = P(A&B)/P(B)
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
-naivebayes<-function(formula, train.data = data.frame(), pred.data = data.frame(), percent.split=1) {
+naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, percent.split=1) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
   response<-rownames(attr(t,"factors"))[attr(t,"response")]
@@ -16,7 +16,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = data.frame(
   if(all(list.attrs == response))
     stop("Empty attribute list")
   
-  if(!all(list.attrs %in% names(pred.data)))
+  if(!is.null(pred.data) & !all(list.attrs %in% names(pred.data)))
     stop("Trainning and test dataframes do not match")
 
   list.attrs <-unique(c(response, list.attrs))
@@ -47,10 +47,13 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = data.frame(
   rm(test.data)
   rm(tpred.data)
   
-  pred.data<-nb.predictor(classifier, list.attrs, pred.data)
-  nb.print.predict.info(pred.data, names(classifier[[response]]))
+  if(!is.null(pred.data)) {
+    pred.data<-nb.predictor(classifier, list.attrs, pred.data)
+    nb.print.predict.info(pred.data, names(classifier[[response]]))
+    return(pred.data)
+  }
   
-  return(pred.data)
+  return(TRUE)
 }
 
 #
