@@ -1,8 +1,7 @@
-source('common.R')
-
 # Cond. Prob:  P(A|B) = P(A&B)/P(B)
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
+
 naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, percent.split=1) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
@@ -22,6 +21,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   list.attrs <-unique(c(response, list.attrs))
   attr(list.attrs,"response")<-response
   
+  train.data<-nb.nominal.data.frame(train.data)
   test.data<-train.data
   if(is.numeric(percent.split)) {
     if(0 < percent.split & percent.split < 1) {
@@ -48,6 +48,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   rm(tpred.data)
   
   if(!is.null(pred.data)) {
+    pred.data<-nb.nominal.data.frame(pred.data)
     pred.data<-nb.predictor(classifier, list.attrs, pred.data)
     nb.print.predict.info(pred.data, names(classifier[[response]]))
     return(pred.data)
@@ -209,9 +210,10 @@ nb.print.train.info <- function(classifier, train.data, test.data, pred.data) {
 
 nb.print.relation.info<-function(data) {
   n<-nchar(max(nrow(data),ncol(data)))
+  r<-attr(data,"relation")
   df <- data.frame(
     c("relation:","instances:","attributes:","","test mode:"),
-    c(attr(data,"relation"), 
+    c(ifelse(is.character(r),r,"unknown"), 
       format(nrow(data),width=n,trim=FALSE,justify="right"),
       format(ncol(data),width=n,trim=FALSE,justify="right"), 
       paste(names(data),collapse = ", "),
@@ -306,4 +308,10 @@ nb.plot_roc<-function(ra) {
 
 nb.prob.colname<-function(c) {
   return(paste("P.",c,sep=""))
+}
+
+nb.nominal.data.frame<-function(data) {
+  new.data<-as.data.frame(apply(data,2,as.character))
+  attributes(new.data)<-attributes(data)
+  return(new.data)
 }

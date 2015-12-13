@@ -1,5 +1,3 @@
-source('common.R')
-
 # Read a CVS file into a data frame
 # path - path to the CVS file
 # handle.blanks - how to handle lines with blank cells { 0-raise error, 1-skip lines, 2-use most commons values in column }
@@ -9,7 +7,10 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
   
   dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = blank.strings, strip.white = TRUE)
   
-  if (is.empty.data.frame(dataframe))
+  if(!is.data.frame(dataframe))
+    stop("Expected data.frame, got ",sapply(dataframe,class))
+  
+  if (!length(dataframe))
     stop("Empty data frame ", basename(path))
   
   if (!is.nominal.attr(dataframe))
