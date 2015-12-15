@@ -311,7 +311,16 @@ nb.prob.colname<-function(c) {
 }
 
 nb.nominal.data.frame<-function(data) {
-  new.data<-as.data.frame(apply(data,2,as.character))
-  attributes(new.data)<-attributes(data)
-  return(new.data)
+  for(i in seq_along(data)) {
+    data[[i]]<-nb.discretize(data[[i]])
+}
+
+nb.discretize<-function(s) {
+  if(!is.numeric(s))
+    return(s)
+  
+  if(all(levels(factor(s)) %in% c(0,1))) 
+    return(factor(s == TRUE))
+  else
+    return(factor(cut(s,unique(quantile(s)),include.lowest=TRUE)))
 }
