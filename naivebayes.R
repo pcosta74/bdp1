@@ -260,12 +260,12 @@ nb.print.cm.accuracy<-function(cm,ra) {
       #FDR=fp/sum(fp,tp),
       #FNR=fn/sum(fn,tp), #miss-rate
       F1S=(2*tp)/sum(2*tp,fp,fn),
-      AUC=ra[[n]]$auc,
-      ACC=sum(tp,tn)/sum(tp,fp,fn,fp))
+      #ACC=sum(tp,tn)/sum(tp,fp,fn,fp),
+      AUC=ra[[n]]$auc)
   }, cm, ra))
   wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/sum(cm)
   mtx<-round(rbind(mtx,wavg), digits = 3)
-  colnames(mtx)<-c("TP Rate","FP Rate", "Precision", "Recall", "Specificity", "F1 Score", "ROC AUC", "Accuracy")
+  colnames(mtx)<-c("TP Rate","FP Rate", "Precision", "Recall", "Specificity", "F1 Score", "ROC AUC")
   print(data.frame(mtx,row.names=c(rownames(cm),"Weighted Avg.")))  
 }
 
@@ -311,8 +311,9 @@ nb.prob.colname<-function(c) {
 }
 
 nb.nominal.data.frame<-function(data) {
-  for(i in seq_along(data)) {
+  for(i in seq_along(data))
     data[[i]]<-nb.discretize(data[[i]])
+  return(data)
 }
 
 nb.discretize<-function(s) {
