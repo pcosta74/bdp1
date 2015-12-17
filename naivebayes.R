@@ -41,7 +41,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   } 
   
   classifier<-nb.classifier(list.attrs, train.data)
-  test.data<-nb.predictor(classifier, list.attrs, test.data, output.prob=TRUE)
+  test.data<-nb.predictor(classifier, list.attrs, test.data, prob.cols=TRUE)
   nb.print.train.info(classifier, train.data, test.data)
   
   rm(test.data)
@@ -74,7 +74,7 @@ nb.classifier<-function(list.attrs, data) {
 }
 
 #
-nb.predictor<-function(classifier, list.attrs, data, output.prob=FALSE) {
+nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
   
   response<-attr(list.attrs,"response")
     
@@ -89,7 +89,7 @@ nb.predictor<-function(classifier, list.attrs, data, output.prob=FALSE) {
     log.prob<-apply(post.prob, 1, function(r) sum(log(r)))
     label<-names(which.max(log.prob))
 
-    if(output.prob == TRUE) {
+    if(prob.cols == TRUE) {
       result<-c(label,unlist(std.prob))
       names(result)<-c(nb.pred.colname(response),nb.prob.colname(names(std.prob)))
       return(result)
@@ -98,7 +98,7 @@ nb.predictor<-function(classifier, list.attrs, data, output.prob=FALSE) {
     return(factor(label))
   })
   
-  if(output.prob == TRUE)
+  if(prob.cols == TRUE)
     data[,rownames(result)]<-data.frame(t(result))
   else
     data[[response]]<-result
