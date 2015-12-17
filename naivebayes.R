@@ -41,12 +41,11 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   } 
   
   classifier<-nb.classifier(list.attrs, train.data)
-  tpred.data<-nb.predictor(classifier, list.attrs, test.data, output.prob=TRUE)
-  nb.print.train.info(classifier, train.data, test.data, tpred.data)
+  test.data<-nb.predictor(classifier, list.attrs, test.data, output.train.data=TRUE)
+  nb.print.train.info(classifier, train.data, test.data)
   
   rm(test.data)
-  rm(tpred.data)
-  
+
   if(!is.null(pred.data)) {
     pred.data<-nb.nominal.data.frame(pred.data)
     pred.data<-nb.predictor(classifier, list.attrs, pred.data)
@@ -75,7 +74,7 @@ nb.classifier<-function(list.attrs, data) {
 }
 
 #
-nb.predictor<-function(classifier, list.attrs, data, output.prob=FALSE) {
+nb.predictor<-function(classifier, list.attrs, data, output.train.data=FALSE) {
   
   response<-attr(list.attrs,"response")
     
@@ -90,19 +89,17 @@ nb.predictor<-function(classifier, list.attrs, data, output.prob=FALSE) {
     log.prob<-apply(post.prob, 1, function(r) sum(log(r)))
     label<-names(which.max(log.prob))
 
-    if(output.prob == TRUE) {
+    if(output.train.data == TRUE) {
       result<-c(label,unlist(std.prob))
-      names(result)<-c(response,nb.prob.colname(names(std.prob)))
+      names(result)<-c(nb.pred.colname(response),nb.prob.colname(names(std.prob)))
       return(result)
     }
     
     return(factor(label))
   })
   
-  if(output.prob == TRUE) {
-    data[,rownames(result)]<-t(result)
-    data[,rownames(result)]<-as.data.frame(sapply(data[,rownames(result)],factor))
-  }
+  if(output.prob == TRUE)
+    data[,rownames(result)]<-as.data.frame(sapply(t(result),factor))
   else
     data[[response]]<-result
   
@@ -169,16 +166,16 @@ nb.print.predict.info<-function(data, levels) {
   cat("\n\n")
 }
 
-nb.print.train.info <- function(classifier, train.data, test.data, pred.data) {
+nb.print.train.info <- function(classifier, train.data, test.data) {
 
   response<-attr(classifier,"response")
   
   l<-levels(train.data[[response]])
   conf.matrix<-table(factor(test.data[[response]], levels=l),
-                     factor(pred.data[[response]], levels=l), 
+                     factor(test.data[[nb.pred.colname(response)]], levels=l), 
                      dnn = list("value","prediction"))
   
-  prd.distr<-pred.data[,(ncol(test.data)+1):ncol(pred.data)]
+  prd.distr<-test.data[,(ncol(train.data)+2):ncol(test.data)]
   prd.distr<-apply(prd.distr,2,as.numeric)
   
   xpt.distr<-matrix(0,nrow(prd.distr),ncol(prd.distr),dimnames=dimnames(prd.distr))
@@ -308,6 +305,10 @@ nb.plot_roc<-function(ra) {
 
 nb.prob.colname<-function(c) {
   return(paste("P.",c,sep=""))
+}
+
+nb.pred.colname<-function(c) {
+  return(paste(c,"^",sep=""))
 }
 
 nb.nominal.data.frame<-function(data) {
