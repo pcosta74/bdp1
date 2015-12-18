@@ -12,12 +12,14 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
   
   if (!length(dataframe))
     stop("Empty data frame ", basename(path))
-  
-  if (!is.nominal.attr(dataframe))
-    stop("Invalid data frame ", basename(path))
+
+  cells.NA<-colSums(is.na(dataframe)) == nrow(dataframe)
+  if(any(cells.NA)) {
+    warning("\tBlank column(s) found, discarding: ",paste(names(which(cells.NA)),collapse=", "),immediate.=TRUE)
+    dataframe<-dataframe[!cells.NA]
+  }
   
   cells.NA <- which(is.na(dataframe), arr.ind = TRUE)
-  
   if(length(cells.NA)>0) {
     msg<-paste(apply(cells.NA,1,function(r) paste(LETTERS[r["col"]],r["row"],sep="")), collapse = "; ")
     
@@ -25,15 +27,19 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
        warning("\tEmpty cell(s) found: ", msg, "\n\tIgnoring lines", immediate. = TRUE)
        dataframe <- na.omit(dataframe)
     } else {
-      warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)
-      common.vals<-apply(dataframe,2,function(c) levels(factor(c))[which.max(summary(factor(c[!is.na(c)])))])
-      dataframe<-as.data.frame(t(apply(dataframe,1,function(c,cv) ifelse(is.na(c),cv[names(c)[is.na(c)]],c), common.vals)))
-    } 
+      warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)  
+      common.vals<-apply(dataframe,2,function(c) c[which.max(summary(factor(c[!is.na(c)])))])
+      for(k in unique(cells.NA[,"col"]))
+        if(is.null(levels(dataframe[,k])))
+          dataframe[,k][is.na(dataframe[,k])]<-as.numeric(common.vals[k]) 
+        else 
+          dataframe[,k][is.na(dataframe[,k])]<-common.vals[k]
+    }
   }
   
   filename<-basename(path)
   attr(dataframe, "relation")<-substr(filename,1,regexpr("\\.",filename) - 1)
-  
+
   message("read ",nrow(dataframe), " rows from '",path,"'")
   return(dataframe)
 }  
@@ -42,7 +48,7 @@ read.data.frame <- function(path, blank.strings = NULL, header = TRUE, sep = ","
 # dataframe - the dataframe to write
 # path - the file to write to
 write.data.frame <- function(dataframe,path = "") {
-  if(path!="") {
+  if(!is.null(path) && path!="") {
     write.csv(dataframe, file = path, row.names = FALSE)
     message("writen ",nrow(dataframe), " rows to '",path,"'")
   }

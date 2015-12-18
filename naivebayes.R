@@ -21,7 +21,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   list.attrs <-unique(c(response, list.attrs))
   attr(list.attrs,"response")<-response
   
-  train.data<-nb.nominal.data.frame(train.data)
+  train.data<-nb.discretize(train.data)
   test.data<-train.data
   if(is.numeric(percent.split)) {
     if(0 < percent.split & percent.split < 1) {
@@ -47,7 +47,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   rm(test.data)
 
   if(!is.null(pred.data)) {
-    pred.data<-nb.nominal.data.frame(pred.data)
+    pred.data<-nb.discretize(pred.data,attr(train.data,"discr.tbl"))
     pred.data<-nb.predictor(classifier, list.attrs, pred.data)
     nb.print.predict.info(pred.data, names(classifier[[response]]))
     return(pred.data)
@@ -311,18 +311,25 @@ nb.pred.colname<-function(c) {
   return(paste(c,"^",sep=""))
 }
 
-nb.nominal.data.frame<-function(data) {
-  for(i in seq_along(data))
-    data[[i]]<-nb.discretize(data[[i]])
-  return(data)
-}
+nb.discretize<-function(data, discr.tbl=NULL) {
 
-nb.discretize<-function(s) {
-  if(!is.numeric(s))
-    return(s)
+  lst.cont<-which(sapply(data,function(c) !is.factor(c)))
+  if(!is.null(lst.cont)) {
+    message("Continuous attributes detected, applying discretization to: ",
+            paste(names(lst.cont),sep="",collapse=", "))
+
+    if(is.null(discr.tbl))
+      discr.tbl<-apply(data[lst.cont], 2, quantile)
+    attr(data, "discr.tbl")<-discr.tbl
+
+    for(item in names(lst.cont)) {
+      if(all(levels(factor(data[[item]])) %in% c(0,1))) 
+        data[[item]]<-factor(s == TRUE)
+      else
+        data[[item]]<-factor(cut(data[[item]],unique(discr.tbl[,item]),
+                                 include.lowest=TRUE))
+    }
+  }
   
-  if(all(levels(factor(s)) %in% c(0,1))) 
-    return(factor(s == TRUE))
-  else
-    return(factor(cut(s,unique(quantile(s)),include.lowest=TRUE)))
+  return(data)
 }
