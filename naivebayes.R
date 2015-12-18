@@ -313,16 +313,17 @@ nb.pred.colname<-function(c) {
 
 nb.discretize<-function(data, discr.tbl=NULL) {
 
-  lst.cont<-which(sapply(data,function(c) !is.factor(c)))
-  if(!is.null(lst.cont)) {
+  lst.cont<-!sapply(data,is.factor)
+  if(any(lst.cont)) {
+    lst.cont<-names(which(lst.cont))
     message("Continuous attributes detected, applying discretization to: ",
-            paste(names(lst.cont),sep="",collapse=", "))
+            paste(lst.cont, collapse=", "))
 
     if(is.null(discr.tbl))
       discr.tbl<-apply(data[lst.cont], 2, quantile)
     attr(data, "discr.tbl")<-discr.tbl
 
-    for(item in names(lst.cont)) {
+    for(item in lst.cont) {
       if(all(levels(factor(data[[item]])) %in% c(0,1))) 
         data[[item]]<-factor(s == TRUE)
       else

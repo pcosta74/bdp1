@@ -2,9 +2,9 @@ source('io.R')
 source('naivebayes.R')
 
 main<-function() {
-  formula<-as.formula("play ~ .")
-  train<-"datasets/tennis_train.csv"
-  pred<-"datasets/tennis_pred.csv"
+  formula<-as.formula("eval ~ .")
+  train<-"datasets/cars_train.csv"
+  pred<-"datasets/cars_pred.csv"
   output<-NULL #"cars_pred.csv"
 
   train.data<-read.data.frame(train, blank.strings=c("","?"))
