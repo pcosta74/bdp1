@@ -47,9 +47,10 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   rm(test.data)
 
   if(!is.null(pred.data)) {
-    pred.data<-nb.discretize(pred.data,attr(train.data,"discr.tbl"))
-    pred.data<-nb.predictor(classifier, list.attrs, pred.data)
-    nb.print.predict.info(pred.data, names(classifier[[response]]))
+    test.data<-nb.discretize(pred.data, attr(train.data,"discr.tbl"))
+    test.data<-nb.predictor(classifier, list.attrs, test.data)
+    nb.print.predict.info(test.data, names(classifier[[response]]))
+    pred.data[[response]]<-test.data[[response]]
     return(pred.data)
   }
   
@@ -81,15 +82,15 @@ nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
   result<-apply(data, 1, function(row) {
     post.prob<-sapply(list.attrs, nb.cond.prob, response, classifier, row)
     
-    # Classic definition
-    std.prob<-apply(post.prob,1,prod)
-    std.prob<-std.prob/sum(std.prob)
-    
     # Additive approach (sum of logs)
     log.prob<-apply(post.prob, 1, function(r) sum(log(r)))
     label<-names(which.max(log.prob))
 
     if(prob.cols == TRUE) {
+      # Classic definition
+      std.prob<-apply(post.prob,1,prod)
+      std.prob<-std.prob/sum(std.prob)
+  
       result<-c(label,unlist(std.prob))
       names(result)<-c(nb.pred.colname(response),nb.prob.colname(names(std.prob)))
       return(result)
@@ -104,7 +105,7 @@ nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
     data[[response]]<-result
   
   attr(data,"response")<-response
-  return(na.omit(data))
+  return(data)
 }
 
 nb.distr.table<-function(attr, response, data) {
