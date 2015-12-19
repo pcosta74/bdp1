@@ -104,7 +104,7 @@ nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
     data[[response]]<-result
   
   attr(data,"response")<-response
-  return(data)
+  return(na.omit(data))
 }
 
 nb.distr.table<-function(attr, response, data) {
