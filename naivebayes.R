@@ -81,7 +81,7 @@ nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
   result<-apply(data, 1, function(row) {
     post.prob<-sapply(list.attrs, nb.cond.prob, response, classifier, row)
     
-    # Classic definiion
+    # Classic definition
     std.prob<-apply(post.prob,1,prod)
     std.prob<-std.prob/sum(std.prob)
     
@@ -153,17 +153,28 @@ nb.roc_auc<-function(xpt, pred.distr) {
   return(result)
 }
 
-nb.print.predict.info<-function(data, levels) {
-
-  response<-attr(data,"response")
+nb.discretize<-function(data, discr.tbl=NULL) {
   
-  cat("=== Prediction information ===\n\n")
-  t<-table(factor(data[[response]],levels=levels))
-  t<-round(rbind(prop.table(t), t), digits = 2)
-  rownames(t)<-c("%","")
-  print(t)
+  lst.cont<-!sapply(data,is.factor)
+  if(any(lst.cont)) {
+    lst.cont<-names(which(lst.cont))
+    message("Continuous attributes detected, applying discretization to: ",
+            paste(lst.cont, collapse=", "))
+    
+    if(is.null(discr.tbl))
+      discr.tbl<-apply(data[lst.cont], 2, quantile)
+    attr(data, "discr.tbl")<-discr.tbl
+    
+    for(item in lst.cont) {
+      if(all(levels(factor(data[[item]])) %in% c(0,1))) 
+        data[[item]]<-factor(data[[item]] == TRUE)
+      else
+        data[[item]]<-factor(cut(data[[item]],unique(discr.tbl[,item]),
+                                 include.lowest=TRUE))
+    }
+  }
   
-  cat("\n\n")
+  return(data)
 }
 
 nb.print.train.info <- function(classifier, train.data, test.data) {
@@ -205,9 +216,23 @@ nb.print.train.info <- function(classifier, train.data, test.data) {
   cat("\n\n")
 }
 
+nb.print.predict.info<-function(data, levels) {
+  
+  response<-attr(data,"response")
+  
+  cat("=== Prediction information ===\n\n")
+  t<-table(factor(data[[response]],levels=levels))
+  t<-round(rbind(prop.table(t), t), digits = 2)
+  rownames(t)<-c("%","")
+  print(t)
+  
+  cat("\n\n")
+}
+
 nb.print.relation.info<-function(data) {
   n<-nchar(max(nrow(data),ncol(data)))
   r<-attr(data,"relation")
+  o<-attr(data,"ommited")
   df <- data.frame(
     c("relation:","instances:","attributes:","","test mode:"),
     c(ifelse(is.character(r),r,"unknown"), 
@@ -297,10 +322,11 @@ nb.plot_roc<-function(ra) {
   abline(0,1, col="darkgray", lty=2)
   
   cl<-rainbow(length(ra))
+  lg<-sapply(names(ra),function(n,l) sprintf("(%.3f) %s", round(l[[n]]$auc,3), n), ra)
   for(k in seq_along(ra)) {
     lines(ra[[k]]$vX,ra[[k]]$vY, col = cl[k], type = 'l')
   }
-  legend(0.7, 0.3, names(ra), lty=c(1,1), lwd=c(2.5,2.5), col=cl, title = "AUC")
+  legend(0.65, 0.3, legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("AUC")), cex=0.85)
 }
 
 nb.prob.colname<-function(c) {
@@ -311,26 +337,3 @@ nb.pred.colname<-function(c) {
   return(paste(c,"^",sep=""))
 }
 
-nb.discretize<-function(data, discr.tbl=NULL) {
-
-  lst.cont<-!sapply(data,is.factor)
-  if(any(lst.cont)) {
-    lst.cont<-names(which(lst.cont))
-    message("Continuous attributes detected, applying discretization to: ",
-            paste(lst.cont, collapse=", "))
-
-    if(is.null(discr.tbl))
-      discr.tbl<-apply(data[lst.cont], 2, quantile)
-    attr(data, "discr.tbl")<-discr.tbl
-
-    for(item in lst.cont) {
-      if(all(levels(factor(data[[item]])) %in% c(0,1))) 
-        data[[item]]<-factor(s == TRUE)
-      else
-        data[[item]]<-factor(cut(data[[item]],unique(discr.tbl[,item]),
-                                 include.lowest=TRUE))
-    }
-  }
-  
-  return(data)
-}

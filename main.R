@@ -7,9 +7,9 @@ main<-function() {
   pred<-"datasets/cars_pred.csv"
   output<-NULL #"cars_pred.csv"
 
-  train.data<-read.data.frame(train, blank.strings=c("","?"))
-  pred.data<-read.data.frame(pred, blank.strings=c("","?"))
+  train.data<-read.data.frame(train, na.strings=c("","?"))
+  pred.data<-read.data.frame(pred, na.strings=c("","?"))
   out.data<-naivebayes(formula, train.data, pred.data)
-  write.data.frame(out.data,output)
+  # write.data.frame(out.data,output)
 }
 
