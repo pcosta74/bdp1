@@ -2,24 +2,24 @@
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
 
-naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, percent.split=1) {
+naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, percent.split=0.7) {
   
   t<-terms(formula, data=train.data, keep.order = TRUE)
-  response<-rownames(attr(t,"factors"))[attr(t,"response")]
+  classvar<-rownames(attr(t,"factors"))[attr(t,"response")]
 
   list.attrs<-attr(t,"term.labels")
   
-  if(!response %in% names(train.data))
-    stop("Unknown class column: ", response)
+  if(!classvar %in% names(train.data))
+    stop("Unknown class variable: ", classvar)
 
-  if(all(list.attrs == response))
+  if(all(list.attrs == classvar))
     stop("Empty attribute list")
   
   if(!is.null(pred.data) & !all(list.attrs %in% names(pred.data)))
     stop("Trainning and test dataframes do not match")
 
-  list.attrs <-unique(c(response, list.attrs))
-  attr(list.attrs,"response")<-response
+  list.attrs <-unique(c(classvar, list.attrs))
+  attr(list.attrs,"classvar")<-classvar
   
   train.data<-nb.discretize(train.data)
   test.data<-train.data
@@ -40,17 +40,17 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
     attr(train.data,"test.mode")<-test.mode
   } 
   
-  classifier<-nb.classifier(list.attrs, train.data)
-  test.data<-nb.predictor(classifier, list.attrs, test.data, prob.cols=TRUE)
-  nb.print.train.info(classifier, train.data, test.data)
+  model<-nb.classifier(list.attrs, train.data)
+  test.data<-nb.predictor(model, list.attrs, test.data, prob.cols=TRUE)
+  nb.print.train.info(model, train.data, test.data)
   
   rm(test.data)
 
   if(!is.null(pred.data)) {
     test.data<-nb.discretize(pred.data, attr(train.data,"discr.tbl"))
-    test.data<-nb.predictor(classifier, list.attrs, test.data)
-    nb.print.predict.info(test.data, names(classifier[[response]]))
-    pred.data[[response]]<-test.data[[response]]
+    test.data<-nb.predictor(model, list.attrs, test.data)
+    nb.print.predict.info(test.data, names(model[[classvar]]))
+    pred.data[[classvar]]<-test.data[[classvar]]
     return(pred.data)
   }
   
@@ -61,26 +61,26 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
 nb.classifier<-function(list.attrs, data) {
 
   time<-Sys.time()
-  response<-attr(list.attrs,"response")
-  classifier<-sapply(list.attrs, nb.distr.table, response, data) 
+  classvar<-attr(list.attrs,"classvar")
+  model<-sapply(list.attrs, nb.distr.table, classvar, data) 
   time<-capture.output(Sys.time()-time)
   
-  if(length(classifier) == 0)
-    stop("Unable to create classifier")
+  if(length(model) == 0)
+    stop("Unable to create model")
   
-  attr(data,"response")<-response
-  attr(classifier,"response")<-response
-  attr(classifier,"train.time")<-sub("Time difference of ","",time)
-  return(classifier)
+  attr(data,"classvar")<-classvar
+  attr(model,"classvar")<-classvar
+  attr(model,"train.time")<-sub("Time difference of ","",time)
+  return(model)
 }
 
 #
-nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
+nb.predictor<-function(model, list.attrs, data, prob.cols=FALSE) {
   
-  response<-attr(list.attrs,"response")
+  classvar<-attr(list.attrs,"classvar")
     
   result<-apply(data, 1, function(row) {
-    post.prob<-sapply(list.attrs, nb.cond.prob, response, classifier, row)
+    post.prob<-sapply(list.attrs, nb.cond.prob, classvar, model, row)
     
     # Additive approach (sum of logs)
     log.prob<-apply(post.prob, 1, function(r) sum(log(r)))
@@ -92,7 +92,7 @@ nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
       std.prob<-std.prob/sum(std.prob)
   
       result<-c(label,unlist(std.prob))
-      names(result)<-c(nb.pred.colname(response),nb.prob.colname(names(std.prob)))
+      names(result)<-c(nb.pred.colname(classvar),nb.prob.colname(names(std.prob)))
       return(result)
     }
     
@@ -102,15 +102,15 @@ nb.predictor<-function(classifier, list.attrs, data, prob.cols=FALSE) {
   if(prob.cols == TRUE)
     data[,rownames(result)]<-data.frame(t(result))
   else
-    data[[response]]<-result
+    data[[classvar]]<-result
   
-  attr(data,"response")<-response
+  attr(data,"classvar")<-classvar
   return(data)
 }
 
-nb.distr.table<-function(attr, response, data) {
+nb.distr.table<-function(attr, classvar, data) {
 
-  v.attrs<-unique(c(attr,response))
+  v.attrs<-unique(c(attr,classvar))
   tbl<-table(data[,v.attrs], dnn=v.attrs) + 1
   
   # for faster calculation later on
@@ -120,10 +120,10 @@ nb.distr.table<-function(attr, response, data) {
   return(tbl)
 }
 
-nb.cond.prob<-function(attr, response, classifier, row) {
-  prob.tbl<-classifier[[attr]]
+nb.cond.prob<-function(attr, classvar, model, row) {
+  prob.tbl<-model[[attr]]
   
-  if(attr == response) 
+  if(attr == classvar) 
     return(prob.tbl)
   else {
     sum.row<-prob.tbl[nrow(prob.tbl),]
@@ -136,19 +136,18 @@ nb.cond.prob<-function(attr, response, classifier, row) {
   }
 }
 
-nb.roc_auc<-function(xpt, pred.distr) {
+nb.roc.auc<-function(xpt, pred.distr) {
   classnames<-levels(xpt)
   result<-sapply(classnames,function(c,df) {
       col<-nb.prob.colname(c)
       df<-df[order(df[,col],decreasing=TRUE),c("xpt",col)]
       cc<-df$xpt == c
-      nc<-df$xpt != c
-      r2<-sum(which(nc))
-      n1<-nrow(df[cc,])
-      n2<-nrow(df[nc,])
+      r2<-sum(which(!cc))
+      n1<-sum(cc)
+      n2<-sum(!cc)
       u2<-r2-(n2*(n2+1))/2
-      vY<-cumsum(cc)/sum(cc)
-      vX<-cumsum(nc)/sum(nc)
+      vY<-cumsum(cc)/n1
+      vX<-cumsum(!cc)/n2
       return(list(auc=u2/(n1*n2),vX=vX,vY=vY))
   }, data.frame(xpt,pred.distr), simplify=FALSE)
   return(result)
@@ -178,13 +177,13 @@ nb.discretize<-function(data, discr.tbl=NULL) {
   return(data)
 }
 
-nb.print.train.info <- function(classifier, train.data, test.data) {
+nb.print.train.info <- function(model, train.data, test.data) {
 
-  response<-attr(classifier,"response")
+  classvar<-attr(model,"classvar")
   
-  l<-levels(train.data[[response]])
-  conf.matrix<-table(factor(test.data[[response]], levels=l),
-                     factor(test.data[[nb.pred.colname(response)]], levels=l), 
+  l<-levels(train.data[[classvar]])
+  conf.matrix<-table(factor(test.data[[classvar]], levels=l),
+                     factor(test.data[[nb.pred.colname(classvar)]], levels=l), 
                      dnn = list("value","prediction"))
   
   prd.distr<-test.data[,(ncol(train.data)+2):ncol(test.data)]
@@ -193,17 +192,17 @@ nb.print.train.info <- function(classifier, train.data, test.data) {
   xpt.distr<-matrix(0,nrow(prd.distr),ncol(prd.distr),dimnames=dimnames(prd.distr))
   xpt.distr<-t(sapply(seq(1:nrow(xpt.distr)), 
                 function(i,r,m) { m[i,r[i]]<-1; return(m[i,]) },
-                nb.prob.colname(test.data[[response]]), xpt.distr))
+                nb.prob.colname(test.data[[classvar]]), xpt.distr))
   
-  roc.auc<-nb.roc_auc(test.data[[response]], prd.distr)
+  roc.auc<-nb.roc.auc(test.data[[classvar]], prd.distr)
 
-  nb.plot_roc(roc.auc)
+  nb.plot.roc(roc.auc)
   
   cat("=== Run information ===\n")
   nb.print.relation.info(train.data)
   
   cat("\n\n=== Evaluation model ===\n\n")
-  nb.print.classifier(classifier)
+  nb.print.model(model)
     
   cat("\n\n=== Summary ===\n")  
   nb.print.summary(conf.matrix, xpt.distr, prd.distr)
@@ -219,10 +218,10 @@ nb.print.train.info <- function(classifier, train.data, test.data) {
 
 nb.print.predict.info<-function(data, levels) {
   
-  response<-attr(data,"response")
+  classvar<-attr(data,"classvar")
   
   cat("=== Prediction information ===\n\n")
-  t<-table(factor(data[[response]],levels=levels))
+  t<-table(factor(data[[classvar]],levels=levels))
   t<-round(rbind(prop.table(t), t), digits = 2)
   rownames(t)<-c("%","")
   print(t)
@@ -292,14 +291,14 @@ nb.print.cm.accuracy<-function(cm,ra) {
   print(data.frame(mtx,row.names=c(rownames(cm),"Weighted Avg.")))  
 }
 
-nb.print.classifier<-function(classifier) {
-  ndx<-which(names(classifier) == attr(classifier,"response"))
+nb.print.model<-function(model) {
+  ndx<-which(names(model) == attr(model,"classvar"))
   
-  lst<-classifier[-ndx]
+  lst<-model[-ndx]
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
-  mtx<-rbind(round(classifier[[ndx]]/sum(classifier[[ndx]]),digits=2), 
-             classifier[[ndx]],rep(NA,ncol(mtx)), mtx)
+  mtx<-rbind(round(model[[ndx]]/sum(model[[ndx]]),digits=2), 
+             model[[ndx]],rep(NA,ncol(mtx)), mtx)
 
   lst<-sapply(names(lst), function(c,l) c(c,rep("",nrow(l[[c]]))), lst, 
               USE.NAMES=FALSE)
@@ -311,10 +310,10 @@ nb.print.classifier<-function(classifier) {
   df<-as.data.frame(apply(df,2,function(x) ifelse(is.na(x),"",x)))
   print.data.frame(format(df, justify="left"), quote=FALSE, row.names=FALSE)
   
-  cat("\nTime taken to build model: ", attr(classifier,"train.time"))
+  cat("\nTime taken to build model: ", attr(model,"train.time"))
 }
 
-nb.plot_roc<-function(ra) {
+nb.plot.roc<-function(ra) {
   plot(0, 0, type = "l", xlim=c(0,1), ylim=c(0,1),
        xlab = "False Positive Rate", ylab = "True Positive Rate", main = "ROC")
   axis(1, seq(0.0,1.0,0.1))
@@ -327,7 +326,8 @@ nb.plot_roc<-function(ra) {
   for(k in seq_along(ra)) {
     lines(ra[[k]]$vX,ra[[k]]$vY, col = cl[k], type = 'l')
   }
-  legend(0.65, 0.3, legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("AUC")), cex=0.85)
+  
+  legend('bottomright', legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("AUC")), cex=0.85)
 }
 
 nb.prob.colname<-function(c) {
