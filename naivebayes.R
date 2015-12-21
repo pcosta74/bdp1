@@ -100,7 +100,7 @@ nb.distr.table<-function(attr, classvar, data) {
   
   # for faster calculation later on
   if(length(v.attrs) == 2)
-    tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum)))
+    tbl<-addmargins(tbl,1,FUN=list(list("[TOTAL]"=sum, "[ERROR]"=function(x) return(1))))
   
   return(tbl)
 }
@@ -111,11 +111,12 @@ nb.cond.prob<-function(attr, classvar, model, row) {
   if(attr == classvar) 
     return(prob.tbl)
   else {
-    sum.row<-prob.tbl[nrow(prob.tbl),]
-    prob.tbl<-head(prob.tbl,-1)
+    sum.row<-prob.tbl[nrow(prob.tbl)-1,]
+    err.row<-prob.tbl[nrow(prob.tbl),]
+    prob.tbl<-head(prob.tbl,-2)
     rslt<-tryCatch(
       { return(prob.tbl[row[[attr]],]/sum.row) },
-      error=function(e) { return(rep(1,ncol(prob.tbl))) }
+      error=function(e) { return(err.row) }
     )
     return(rslt)
   }
@@ -307,7 +308,7 @@ nb.print.cm.accuracy<-function(cm,ra) {
 nb.print.model<-function(model) {
   ndx<-which(names(model) == attr(model,"classvar"))
   
-  lst<-model[-ndx]
+  lst<-sapply(model[-ndx],function(t) head(t,-1))
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
   mtx<-rbind(round(model[[ndx]]/sum(model[[ndx]]),digits=2), 
@@ -323,7 +324,12 @@ nb.print.model<-function(model) {
   df<-as.data.frame(apply(df,2,function(x) ifelse(is.na(x),"",x)))
   print.data.frame(format(df, justify="left"), quote=FALSE, row.names=FALSE)
   
-  cat("\nTime taken to build model: ", attr(model,"train.time"))
+  df<-data.frame(
+    c("Time taken to build model: ", "Space required to store model:"),
+    values=c(attr(model,"train.time"), capture.output(object.size(model)))
+  )
+  names(df)<-c(" "," ")
+  print.data.frame(format(df,justify="left"), quote=FALSE, row.names=FALSE)
 }
 
 nb.plot.roc<-function(ra) {

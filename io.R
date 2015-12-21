@@ -1,11 +1,12 @@
 # Read a CVS file into a data frame
 # path - path to the CVS file
-read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", quote = "\"", dec = ".") {
-  if(is.character(na.strings) | is.vector(na.strings))
-    na.strings<-unique(c(na.strings,NA))
+read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quote = "\"", dec = ".") {
   
   time<-Sys.time()
   path<-file.path(path)
+
+  if(is.character(na.strings) | is.vector(na.strings))
+    na.strings<-unique(c(na.strings,NA))
   
   if(!file.exists(path))
     error("File does not exist: '",path,"'")
