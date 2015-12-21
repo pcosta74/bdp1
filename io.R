@@ -5,6 +5,7 @@ read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", q
     na.strings<-unique(c(na.strings,NA))
   
   time<-Sys.time()
+  path<-file.path(path)
   dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = na.strings, strip.white = TRUE)
   
   if(!is.data.frame(dataframe))
@@ -18,9 +19,10 @@ read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", q
   filename<-basename(path)
   attr(dataframe, "relation")<-substr(filename,1,regexpr("\\.",filename) - 1)
 
-  time<-sub("Time difference of ","",capture.output(Sys.time()-time))
   size<-capture.output(object.size(data.frame))
-  message("read ",size, " from '",path,"' in ",time)
+  time<-sub("Time difference of ","",capture.output(Sys.time()-time))
+  message("Read ",size, " from '",path,"' in ",time)
+  
   return(dataframe)
 }  
 
@@ -29,8 +31,16 @@ read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", q
 # path - the file to write to
 write.data.frame <- function(dataframe,path = "") {
   if(!is.null(path) && path!="") {
+    time<-Sys.time()
+    path<-file.path(path)
+    
+    if(!dir.exists(dirname(path)))
+      dir.create(dirname(path),recursive=TRUE)
+    
     write.csv(dataframe, file = path, row.names = FALSE)
-    message("writen ",nrow(dataframe), " rows to '",path,"'")
+    size<-capture.output(object.size(data.frame))
+    time<-sub("Time difference of ","",capture.output(Sys.time()-time))
+    message("Wrote ",size, " to '",path,"' in ",time)
   }
   else {
     cat("=== Result dataset ===\n\n")
