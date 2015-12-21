@@ -21,14 +21,14 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   list.attrs <-unique(c(classvar, list.attrs))
   attr(list.attrs,"classvar")<-classvar
   
-  s<-nb.split.data(nb.discretize(train.data), percent.split)
+  s<-nb.split(nb.discretize(train.data), percent.split)
   train.data<-s$train
   test.data<-s$test
+  rm(s)
   
   model<-nb.classifier(list.attrs, train.data)
   test.data<-nb.predictor(model, list.attrs, test.data, prob.cols=TRUE)
   nb.print.train.info(model, train.data, test.data)
-  
   rm(test.data)
 
   if(!is.null(pred.data)) {
@@ -162,7 +162,7 @@ nb.discretize<-function(data, discr.tbl=NULL) {
   return(data)
 }
 
-nb.split.data<-function(data, percent.split=0.7) {
+nb.split<-function(data, percent.split=0.7) {
 
   if(is.numeric(percent.split)) {
     if(0 < percent.split & percent.split < 1) {
