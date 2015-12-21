@@ -4,6 +4,7 @@ read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", q
   if(is.character(na.strings) | is.vector(na.strings))
     na.strings<-unique(c(na.strings,NA))
   
+  time<-Sys.time()
   dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = na.strings, strip.white = TRUE)
   
   if(!is.data.frame(dataframe))
@@ -17,7 +18,9 @@ read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", q
   filename<-basename(path)
   attr(dataframe, "relation")<-substr(filename,1,regexpr("\\.",filename) - 1)
 
-  message("read ",nrow(dataframe), " rows from '",path,"'")
+  time<-sub("Time difference of ","",capture.output(Sys.time()-time))
+  size<-capture.output(object.size(data.frame))
+  message("read ",size, " from '",path,"' in ",time)
   return(dataframe)
 }  
 
