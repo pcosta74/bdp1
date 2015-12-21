@@ -81,7 +81,7 @@ nb.predictor<-function(model, list.attrs, data, prob.cols=FALSE) {
       return(result)
     }
     
-    return(factor(label))
+    return(label)
   })
   
   if(prob.cols == TRUE)
