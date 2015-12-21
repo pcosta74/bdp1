@@ -21,24 +21,9 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   list.attrs <-unique(c(classvar, list.attrs))
   attr(list.attrs,"classvar")<-classvar
   
-  train.data<-nb.discretize(train.data)
-  test.data<-train.data
-  if(is.numeric(percent.split)) {
-    if(0 < percent.split & percent.split < 1) {
-      n.rows<-round(nrow(train.data)*percent.split,digits=0)
-      sample<-sort(sample(1:nrow(train.data), n.rows))
-
-      test.data<-train.data[-sample,]
-      train.data<-train.data[sample,]
-      test.mode<-paste("split ",percent.split*100,"% train, remaider test")
-    }
-    else if(percent.split == 1)
-      test.mode<-"evaluate on training data"
-    else
-      stop("Invalid sampling percentage: ", percent.split)
-    
-    attr(train.data,"test.mode")<-test.mode
-  } 
+  s<-nb.split.data(nb.discretize(train.data), percent.split)
+  train.data<-s$train
+  test.data<-s$test
   
   model<-nb.classifier(list.attrs, train.data)
   test.data<-nb.predictor(model, list.attrs, test.data, prob.cols=TRUE)
@@ -175,6 +160,34 @@ nb.discretize<-function(data, discr.tbl=NULL) {
   }
   
   return(data)
+}
+
+nb.split.data<-function(data, percent.split=0.7) {
+
+  if(is.numeric(percent.split)) {
+    if(0 < percent.split & percent.split < 1) {
+      n.rows<-round(nrow(data)*percent.split,digits=0)
+      sample<-sort(sample(1:nrow(data), n.rows))
+
+      train<-data[sample,]
+      test<-data[-sample,]
+      test.mode<-paste("split ",percent.split*100,"% train, remaider test")
+    }
+    else if(percent.split == 1)
+      test.mode<-"evaluate on training data"
+    else
+      stop("Invalid sampling percentage: ", percent.split)
+    
+  }
+  else {
+    train<-data
+    test<-data
+  }
+
+  attr(train,"test.mode")<-test.mode
+  attr(test,"test.mode")<-test.mode
+  
+  return(list(train=train, test=test))
 }
 
 nb.print.train.info <- function(model, train.data, test.data) {
