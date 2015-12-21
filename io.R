@@ -6,11 +6,15 @@ read.data.frame <- function(path, na.strings = NULL, header = TRUE, sep = ",", q
   
   time<-Sys.time()
   path<-file.path(path)
+  
+  if(!file.exists(path))
+    error("File does not exist: '",path,"'")
+    
   dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = na.strings, strip.white = TRUE)
   
   if(!is.data.frame(dataframe))
     stop("Expected data.frame, got ",sapply(dataframe,class))
-  
+    
   if (!length(dataframe))
     stop("Empty data frame ", basename(path))
 
