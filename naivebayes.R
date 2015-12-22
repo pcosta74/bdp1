@@ -141,7 +141,7 @@ nb.roc.auc<-function(xpt, pred.distr) {
 
 nb.discretize<-function(data, discr.tbl=NULL) {
   
-  lst.cont<-!sapply(data,is.factor)
+  lst.cont<-!sapply(data,function(c) is.factor(c)|is.character(c))
   if(any(lst.cont)) {
     lst.cont<-names(which(lst.cont))
     message("Continuous attributes detected, applying discretization to: ",
