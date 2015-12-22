@@ -65,16 +65,12 @@ na.strip.data.frame <- function(dataframe, drop.lines=TRUE) {
     if(drop.lines) {
       warning("\tEmpty cell(s) found: ", msg, "\n\tIgnoring lines", immediate. = TRUE)
       dataframe <- na.omit(dataframe)
-      attribute(dataframe,"ommited")<-length(unique(cells.NA[,"row"]))
+      attr(dataframe,"ommited")<-length(unique(cells.NA[,"row"]))
     } else {
       warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)  
-      common.vals<-apply(dataframe,2,function(c) c[which.max(summary(factor(c[!is.na(c)])))])
-      for(k in unique(cells.NA[,"col"])) {
-        if(is.null(levels(dataframe[,k])))
-          dataframe[,k][is.na(dataframe[,k])]<-as.numeric(common.vals[k]) 
-        else 
-          dataframe[,k][is.na(dataframe[,k])]<-common.vals[k]
-      }
+      common.vals<-as.data.frame(lapply(dataframe,function(c) c[which.max(c[!is.na(c)])]))
+      for(k in unique(cells.NA[,"col"]))
+        dataframe[unique(cells.NA[,"row"]),k]<-common.vals[[k]]
     }
   }
   
