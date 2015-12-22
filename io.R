@@ -3,21 +3,20 @@
 read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quote = "\"", dec = ".") {
   
   time<-Sys.time()
-  path<-file.path(path)
 
   if(is.character(na.strings) | is.vector(na.strings))
     na.strings<-unique(c(na.strings,NA))
   
+  path<-file.path(path)
   if(!file.exists(path))
     error("File does not exist: '",path,"'")
     
-  dataframe <- read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = na.strings, strip.white = TRUE)
+  dataframe<-read.csv(path, header=header, sep=sep, quote=quote, dec=dec, na.strings = na.strings, strip.white = TRUE)
+  dataframe<-na.strip.data.frame(dataframe, is.null(na.strings))  
 
   if (!length(dataframe))
     stop("Empty data frame ", basename(path))
 
-  dataframe<-na.strip.data.frame(dataframe, is.null(na.strings))  
-  
   filename<-basename(path)
   attr(dataframe, "relation")<-substr(filename,1,regexpr("\\.",filename) - 1)
 
@@ -34,8 +33,8 @@ read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quo
 write.data.frame <- function(dataframe,path = "") {
   if(!is.null(path) && path!="") {
     time<-Sys.time()
-    path<-file.path(path)
     
+    path<-file.path(path)
     if(!dir.exists(dirname(path)))
       dir.create(dirname(path),recursive=TRUE)
     
