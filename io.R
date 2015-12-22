@@ -31,7 +31,11 @@ read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quo
 # dataframe - the dataframe to write
 # path - the file to write to
 write.data.frame <- function(dataframe,path = "") {
-  if(!is.null(path) && path!="") {
+  if(is.null(path) | path=="") {
+    cat("=== Result dataset ===\n\n")
+    print(dataframe, row.names=FALSE)
+  }
+  else {
     time<-Sys.time()
     
     path<-file.path(path)
@@ -42,10 +46,6 @@ write.data.frame <- function(dataframe,path = "") {
     size<-capture.output(object.size(data.frame))
     time<-sub("Time difference of ","",capture.output(Sys.time()-time))
     message("Wrote ",size, " to '",path,"' in ",time)
-  }
-  else {
-    cat("=== Result dataset ===\n\n")
-    print(dataframe, row.names=FALSE)
   }
 }
 
