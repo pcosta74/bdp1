@@ -165,13 +165,19 @@ nb.discretize<-function(data, discr.tbl=NULL) {
 
 nb.split<-function(data, percent.split=0.7) {
 
+  train<-data
+  test<-data
+  
+  attributes(train)<-attributes(data)
+  attributes(test)<-attributes(data)
+  
   if(is.numeric(percent.split)) {
     if(0 < percent.split & percent.split < 1) {
       n.rows<-round(nrow(data)*percent.split,digits=0)
       sample<-sort(sample(1:nrow(data), n.rows))
 
-      train<-data[sample,]
-      test<-data[-sample,]
+      train<-train[sample,]
+      test<-test[-sample,]
       test.mode<-paste("split ",percent.split*100,"% train, remaider test")
     }
     else if(percent.split == 1)
@@ -179,10 +185,6 @@ nb.split<-function(data, percent.split=0.7) {
     else
       stop("Invalid sampling percentage: ", percent.split)
     
-  }
-  else {
-    train<-data
-    test<-data
   }
 
   attr(train,"test.mode")<-test.mode
