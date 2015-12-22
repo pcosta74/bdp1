@@ -2,7 +2,7 @@ source('io.R')
 source('naivebayes.R')
 
 main<-function() {
-  formula=as.formula("donated ~ .")
+  formula=donated ~ .
   train="datasets/transfusion_train.csv"
   pred="datasets/transfusion_pred.csv"
   output="transfusion_pred.csv"

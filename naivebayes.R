@@ -310,7 +310,7 @@ nb.print.cm.accuracy<-function(cm,ra) {
 nb.print.model<-function(model) {
   ndx<-which(names(model) == attr(model,"classvar"))
   
-  lst<-sapply(model[-ndx],function(t) head(t,-1))
+  lst<-sapply(model[-ndx],function(t) head(t,-1), simplify=FALSE)
   
   mtx<-Reduce(function(x,y) rbind(x,rep(NA,ncol(x)),y), lst)
   mtx<-rbind(round(model[[ndx]]/sum(model[[ndx]]),digits=2), 
