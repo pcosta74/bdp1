@@ -52,14 +52,14 @@ scenario<-list(
     pred="datasets/transfusion_pred.csv",
     output="output/transfusion_pred.csv",
     plot="output/transfusion_pred.png"
-  ) #,
-  #'poker'=list(
-  #  formula=Poker_Hand ~ .,
-  #  train="datasets/poker_hand_train.csv", 
-  #  pred="datasets/poker_hand_pred.csv",
-  #  output="output/poker_hand_pred.csv",
-  #  plot="output/poker_hand_pred.png"
-  #)
+  ),
+  'poker'=list(
+    formula=Poker_Hand ~ .,
+    train="datasets/poker_hand_train.csv", 
+    pred="datasets/poker_hand_pred.csv",
+    output="output/poker_hand_pred.csv",
+    plot="output/poker_hand_pred.png"
+  )
 )
 
 test<-function(formula,train, pred=NULL, output=NULL, plot=NULL, percent.split=0.7) {
@@ -74,8 +74,14 @@ test<-function(formula,train, pred=NULL, output=NULL, plot=NULL, percent.split=0
 }
 
 run<-function() {
+  con1<-file("output/run.log","w")
+  sink(con1, append=TRUE)
+
+  con2<-file("output/msg.log","w")
+  sink(con2, append=TRUE, type="message")
+  
   for(name in names(scenario)) {
-    message("=== BEGIN ===",appendLF=TRUE)
+    message("=== BEGIN ",Sys.time()," ===",appendLF=TRUE)
     message("Scenario: ",name,appendLF=TRUE)
     lst<-lapply(scenario[[name]],function(x) {
       ifelse(is.character(x),x,deparse(x))
@@ -86,7 +92,10 @@ run<-function() {
     message("===",appendLF=TRUE)
     message("Execution:", appendLF=TRUE)
     message(sprintf("   %-10s: %s\n",names(lst),lst))
-    message("=== END ===",appendLF=TRUE)
+    message("=== END ",Sys.time()," ===",appendLF=TRUE)
   }
+  
+  sink() 
+  sink(type="message")
 }
 
