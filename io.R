@@ -65,7 +65,6 @@ na.strip.data.frame <- function(dataframe, drop.lines=TRUE) {
     if(drop.lines) {
       warning("\tEmpty cell(s) found: ", msg, "\n\tIgnoring lines", immediate. = TRUE)
       dataframe <- na.omit(dataframe)
-      attr(dataframe,"ommited")<-length(unique(cells.NA[,"row"]))
     } else {
       warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)  
       common.vals<-as.data.frame(lapply(dataframe,function(c) c[which.max(c[!is.na(c)])]))
