@@ -68,8 +68,7 @@ test<-function(formula,train, pred=NULL, output=NULL, plot=NULL, percent.split=0
   out.data<-naivebayes(formula, train.data, pred.data, percent.split)
   write.data.frame(out.data, output)
   if(!is.null(plot)) {
-    w<-600; h<-600
-    dev.copy(png, plot, width=w, height=h)
+    dev.copy(png, plot, width=600, height=600)
     dev.off()
   }
 }
@@ -77,7 +76,16 @@ test<-function(formula,train, pred=NULL, output=NULL, plot=NULL, percent.split=0
 run<-function() {
   for(name in names(scenario)) {
     message("=== BEGIN ===",appendLF=TRUE)
-    do.call(test,scenario[[name]])
+    message("Scenario: ",name,appendLF=TRUE)
+    lst<-lapply(scenario[[name]],function(x) {
+      ifelse(is.character(x),x,deparse(x))
+    })
+    message(sprintf("   %-8s: %s\n",names(lst),lst)) 
+    message("===",appendLF=TRUE)
+    lst<-system.time(do.call(test,scenario[[name]]))
+    message("===",appendLF=TRUE)
+    message("Execution:", appendLF=TRUE)
+    message(sprintf("   %-10s: %s\n",names(lst),lst))
     message("=== END ===",appendLF=TRUE)
   }
 }
