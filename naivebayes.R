@@ -1,3 +1,5 @@
+source('io.R')
+
 # Cond. Prob:  P(A|B) = P(A&B)/P(B)
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
 # NaiveBayes: argmax P(Ck) PRODi=1..n P(xi|Ck)
@@ -179,6 +181,10 @@ nb.split<-function(data, percent.split=0.7) {
       train<-train[sample,]
       test<-test[-sample,]
       test.mode<-paste("split ",percent.split*100,"% train, remaider test")
+      name<-paste(attr(train,"relation"),"csv",sep=".")
+      write.data.frame(train,paste("train",name,sep="/"))
+      name<-paste(sub("train","test",attr(train,"relation")),"csv",sep=".")
+      write.data.frame(test,paste("test",name,sep="/"))
     }
     else if(percent.split == 1)
       test.mode<-"evaluate on training data"
@@ -348,7 +354,7 @@ nb.plot.roc<-function(ra) {
     lines(ra[[k]]$vX,ra[[k]]$vY, col = cl[k], type = 'l')
   }
   
-  legend('bottomright', legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("AUC")), cex=0.85)
+  legend('bottomright', legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("Class")), cex=0.85)
 }
 
 nb.prob.colname<-function(c) {
