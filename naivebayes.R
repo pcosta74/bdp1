@@ -1,4 +1,4 @@
-source('io.R')
+# source('io.R')
 
 # Cond. Prob:  P(A|B) = P(A&B)/P(B)
 # Bayes Theor: P(B|A) = (P(B)*P(A|B))/P(A)
@@ -181,10 +181,10 @@ nb.split<-function(data, percent.split=0.7) {
       train<-train[sample,]
       test<-test[-sample,]
       test.mode<-paste("split ",percent.split*100,"% train, remaider test")
-      name<-paste(attr(train,"relation"),"csv",sep=".")
-      write.data.frame(train,paste("train",name,sep="/"))
-      name<-paste(sub("train","test",attr(train,"relation")),"csv",sep=".")
-      write.data.frame(test,paste("test",name,sep="/"))
+#       name<-paste(attr(train,"relation"),"csv",sep=".")
+#       write.data.frame(train,paste("train",name,sep="/"))
+#       name<-paste(sub("train","test",attr(train,"relation")),"csv",sep=".")
+#       write.data.frame(test,paste("test",name,sep="/"))
     }
     else if(percent.split == 1)
       test.mode<-"evaluate on training data"
