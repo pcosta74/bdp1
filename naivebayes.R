@@ -354,7 +354,7 @@ nb.plot.roc<-function(ra) {
     lines(ra[[k]]$vX,ra[[k]]$vY, col = cl[k], type = 'l')
   }
   
-  legend('bottomright', legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("Class")), cex=0.85)
+  legend('bottomright', legend=lg, lty=c(1,1), lwd=c(2.5,2.5), col=cl, title=expression(bold("AUC")), cex=0.85)
 }
 
 nb.prob.colname<-function(c) {
