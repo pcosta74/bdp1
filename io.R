@@ -50,6 +50,19 @@ write.data.frame <- function(dataframe,path = "") {
 }
 
 #
+write.plot <- function(path, device=png, width=600, height=600) {
+  if(!is.null(path)) {
+
+    path<-file.path(path)
+    if(!dir.exists(dirname(path)))
+      dir.create(dirname(path),recursive=TRUE)
+
+    dev.copy(device, path, width=width, height=height)
+    dev.off()
+  }  
+}
+
+#
 na.strip.data.frame <- function(dataframe, drop.lines=TRUE) {
   
   cells.NA<-colSums(is.na(dataframe)) == nrow(dataframe)
