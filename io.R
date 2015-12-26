@@ -20,7 +20,7 @@ read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quo
   filename<-basename(path)
   attr(dataframe, "relation")<-substr(filename,1,regexpr("\\.",filename) - 1)
 
-  size<-object.size(dataframe)
+  size<-capture.output(object.size(dataframe))
   time<-sub("Time difference of ","",capture.output(Sys.time()-time))
   message("Read ",size, " from '",path,"' in ",time)
   
