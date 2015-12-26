@@ -23,20 +23,28 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   list.attrs <-unique(c(classvar, list.attrs))
   attr(list.attrs,"classvar")<-classvar
   
-  s<-nb.split(nb.discretize(train.data), percent.split)
-  train.data<-s$train
-  test.data<-s$test
-  rm(s)
-  
+  train.data<-nb.discretize(train.data)
   model<-nb.classifier(list.attrs, train.data)
-  test.data<-nb.predictor(model, list.attrs, test.data, prob.cols=TRUE)
+
+  sd<-nb.split(train.data, percent.split)
+  if(percent.split<1.0)
+    test.model<-nb.classifier(list.attrs, sd$train)
+  else
+    test.model<-model
+  test.data<-sd$test
+  attr(train.data,"test.mode")<-attr(sd$train,"test.mode")    
+  rm(sd)
+
+  test.data<-nb.predictor(test.model, list.attrs, test.data, prob.cols=TRUE)
   nb.print.train.info(model, train.data, test.data)
   rm(test.data)
 
   if(!is.null(pred.data)) {
     test.data<-nb.discretize(pred.data, attr(train.data,"discr.tbl"))
+    time<-Sys.time()
     test.data<-nb.predictor(model, list.attrs, test.data)
-    nb.print.predict.info(test.data, names(model[[classvar]]))
+    time<-capture.output(Sys.time()-time)
+    nb.print.predict.info(test.data, names(model[[classvar]]), time)
     pred.data[[classvar]]<-test.data[[classvar]]
     return(pred.data)
   }
@@ -190,7 +198,6 @@ nb.split<-function(data, percent.split=0.7) {
       test.mode<-"evaluate on training data"
     else
       stop("Invalid sampling percentage: ", percent.split)
-    
   }
 
   attr(train,"test.mode")<-test.mode
@@ -223,10 +230,12 @@ nb.print.train.info <- function(model, train.data, test.data) {
   cat("=== Run information ===\n")
   nb.print.relation.info(train.data)
   
-  cat("\n\n=== Evaluation model ===\n\n")
+  cat("\n\n=== Classification model (full training set) ===\n\n")
   nb.print.model(model)
     
-  cat("\n\n=== Summary ===\n")  
+  mode<-ifelse(nrow(train.data)==nrow(test.data),"training set","split test")
+  cat("\n\n=== Evaluation on",mode,"===")  
+  cat("\n=== Summary ===\n")  
   nb.print.summary(conf.matrix, xpt.distr, prd.distr)
     
   cat("\n\n=== Detailed accuracy by class ===\n\n")
@@ -238,7 +247,7 @@ nb.print.train.info <- function(model, train.data, test.data) {
   cat("\n\n")
 }
 
-nb.print.predict.info<-function(data, levels) {
+nb.print.predict.info<-function(data, levels, time) {
   
   classvar<-attr(data,"classvar")
   
@@ -247,7 +256,8 @@ nb.print.predict.info<-function(data, levels) {
   t<-round(rbind(prop.table(t), t), digits = 2)
   rownames(t)<-c("%","")
   print(t)
-  
+  cat("\nTime taken to evaluate dataset: ",
+      sub("Time difference of ","",time))
   cat("\n\n")
 }
 
@@ -255,16 +265,16 @@ nb.print.relation.info<-function(data) {
   n<-nchar(max(nrow(data),ncol(data)))
   r<-attr(data,"relation")
   o<-attr(data,"ommited")
-  df <- data.frame(
-    c("relation:","instances:","attributes:","","test mode:"),
-    c(ifelse(is.character(r),r,"unknown"), 
-      format(nrow(data),width=n,trim=FALSE,justify="right"),
-      format(ncol(data),width=n,trim=FALSE,justify="right"), 
-      paste(names(data),collapse = ", "),
-      attr(data,"test.mode")),
-    check.rows = TRUE)
-  colnames(df) <- c(" "," ")
-  print(df, row.names = FALSE, right = FALSE)
+  l<-c("relation:","instances:","attributes:","","test mode:")
+  v<-c(ifelse(is.character(r),r,"unknown"), 
+       format(nrow(data),width=n,trim=FALSE,justify="right"),
+       format(ncol(data),width=n,trim=FALSE,justify="right"), 
+       paste(names(data),collapse = ", "),
+       attr(data,"test.mode"))
+  
+  f<-paste("%-", max(nchar(l)),"s %s\n",sep="",collapse="")
+  for(k in seq_along(l))
+    cat(sprintf(f,l[k],v[k]))
 }
 
 nb.print.summary<-function(cm, xd, pd) {
@@ -295,19 +305,19 @@ nb.print.cm.accuracy<-function(cm,ra) {
     fn<-sum(cm[n,-n])
     fp<-sum(cm[-n,n])
     tn<-sum(cm[-n,-n])
-    c(TPR=tp/sum(tp,fn), #sensitivity
-      FPR=fp/sum(fp,tn), #fall-out
-      PPV=tp/sum(tp,fp), #precision
-      REC=tp/sum(tp,fn), #recall
-      TNR=tn/sum(fp,tn), #specificity
+    c(TPR=tp/ifelse(sum(tp,fn),sum(tp,fn),1), #sensitivity
+      FPR=fp/ifelse(sum(fp,tn),sum(fp,tn),1), #fall-out
+      PPV=tp/ifelse(sum(tp,fp),sum(tp,fp),1), #precision
+      REC=tp/ifelse(sum(tp,fn),sum(tp,fn),1), #recall
+      TNR=tn/ifelse(sum(fp,tn),sum(fp,tn),1), #specificity
       #NVP=tn/sum(tn,fn),
       #FDR=fp/sum(fp,tp),
       #FNR=fn/sum(fn,tp), #miss-rate
-      F1S=(2*tp)/sum(2*tp,fp,fn),
+      F1S=(2*tp)/ifelse(sum(2*tp,fp,fn),sum(2*tp,fp,fn),1),
       #ACC=sum(tp,tn)/sum(tp,fp,fn,fp),
       AUC=ra[[n]]$auc)
   }, cm, ra))
-  wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/sum(cm)
+  wavg<-apply(apply(cm,1,sum)*mtx,2,sum)/ifelse(sum(cm),sum(cm),1)
   mtx<-round(rbind(mtx,wavg), digits = 3)
   colnames(mtx)<-c("TP Rate","FP Rate", "Precision", "Recall", "Specificity", "F1 Score", "ROC AUC")
   print(data.frame(mtx,row.names=c(rownames(cm),"Weighted Avg.")))  

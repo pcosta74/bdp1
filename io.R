@@ -43,7 +43,7 @@ write.data.frame <- function(dataframe,path = "") {
       dir.create(dirname(path),recursive=TRUE)
     
     write.csv(dataframe, file = path, row.names = FALSE)
-    size<-object.size(dataframe)
+    size<-capture.output(object.size(dataframe))
     time<-sub("Time difference of ","",capture.output(Sys.time()-time))
     message("Wrote ",size, " to '",path,"' in ",time)
   }
