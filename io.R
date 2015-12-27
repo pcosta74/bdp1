@@ -80,7 +80,7 @@ na.strip.data.frame <- function(dataframe, drop.lines=TRUE) {
       dataframe <- na.omit(dataframe)
     } else {
       warning("\tEmpty cell(s) found: ", msg, "\n\tUsing most common values in columns" ,immediate. = TRUE)  
-      common.vals<-as.data.frame(lapply(dataframe,function(c) c[which.max(c[!is.na(c)])]))
+      common.vals<-as.data.frame(lapply(dataframe,function(c) names(which.max(table(c[!is.na(c)])))))
       for(k in unique(cells.NA[,"col"]))
         dataframe[unique(cells.NA[,"row"]),k]<-common.vals[[k]]
     }

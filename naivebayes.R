@@ -31,14 +31,12 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
     test.model<-nb.classifier(list.attrs, sd$train)
   else
     test.model<-model
-  test.data<-sd$test
-  attr(train.data,"test.mode")<-attr(sd$train,"test.mode")    
-  rm(sd)
-
-  test.data<-nb.predictor(test.model, list.attrs, test.data, prob.cols=TRUE)
+  test.data<-nb.predictor(test.model, list.attrs, sd$test, prob.cols=TRUE)
+  attr(train.data,"test.mode")<-attr(sd.train,"test.mode")
   nb.print.train.info(model, train.data, test.data)
   rm(test.data)
-
+  rm(sd)
+  
   if(!is.null(pred.data)) {
     test.data<-nb.discretize(pred.data, attr(train.data,"discr.tbl"))
     time<-Sys.time()
