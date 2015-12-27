@@ -32,7 +32,7 @@ naivebayes<-function(formula, train.data = data.frame(), pred.data = NULL, perce
   else
     test.model<-model
   test.data<-nb.predictor(test.model, list.attrs, sd$test, prob.cols=TRUE)
-  attr(train.data,"test.mode")<-attr(sd.train,"test.mode")
+  attr(train.data,"test.mode")<-attr(sd$train,"test.mode")
   nb.print.train.info(model, train.data, test.data)
   rm(test.data)
   rm(sd)
@@ -291,7 +291,7 @@ nb.print.summary<-function(cm, xd, pd) {
       "Mean absolute error:", "Root mean squared error:",
       "Number of instances:"),
     c(round(mdiag), total-mdiag, mae, rmse, total),
-    c(paste(round(ratio,2),"%",sep=""),paste(round(1-ratio,2),"%",sep=""),rep("",2),"")
+    c(paste(round(ratio,2)*100,"%",sep=""),paste(round(1-ratio,2)*100,"%",sep=""),rep("",2),"")
   )
   colnames(df)<-c(" "," ", " ")
   print(format(df,justify = "left"), row.names=FALSE)  

@@ -4,7 +4,7 @@ read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quo
   
   time<-Sys.time()
 
-  if(is.character(na.strings) | is.vector(na.strings))
+  if(is.character(na.strings) || is.vector(na.strings))
     na.strings<-unique(c(na.strings,NA))
   
   path<-file.path(path)
@@ -31,7 +31,7 @@ read.data.frame <- function(path, na.strings = "", header = TRUE, sep = ",", quo
 # dataframe - the dataframe to write
 # path - the file to write to
 write.data.frame <- function(dataframe,path = "") {
-  if(is.null(path) | path=="") {
+  if(is.null(path) || path=="") {
     cat("=== Result dataset ===\n\n")
     print(dataframe, row.names=FALSE)
   }
