@@ -132,18 +132,29 @@ nb.cond.prob<-function(attr, classvar, model, row) {
 
 nb.roc.auc<-function(xpt, pred.distr) {
   classnames<-levels(xpt)
-  result<-sapply(classnames,function(c,df) {
-      col<-nb.prob.colname(c)
-      df<-df[order(df[,col],decreasing=TRUE),c("xpt",col)]
-      cc<-df$xpt == c
-      r2<-sum(which(!cc))
-      n1<-sum(cc)
-      n2<-sum(!cc)
-      u2<-r2-(n2*(n2+1))/2
-      vY<-cumsum(cc)/n1
-      vX<-cumsum(!cc)/n2
-      return(list(auc=u2/(n1*n2),vX=vX,vY=vY))
-  }, data.frame(xpt,pred.distr), simplify=FALSE)
+  pos.class<-if(length(classnames)==2) classnames[1] 
+
+  dataframe<-data.frame(xpt,pred.distr)
+  result<-sapply(classnames,function(c,df,pc=NULL) {
+    col<-nb.prob.colname(c)
+    rvt<-!is.null(pc) && c==pc
+    df<-df[order(df[,col],decreasing=!rvt),c("xpt",col)]
+    
+    cc<-df$xpt == c
+    n1<-sum(cc)
+    n2<-sum(!cc)
+    vY<-cumsum(cc)/n1
+    vX<-cumsum(!cc)/n2
+    
+    r2<-sum(which(!cc))
+    u2<-r2-(n2*(n2+1))/2
+    auc<-u2/(n1*n2)
+    if(rvt)
+      return(list(auc=1-auc,vX=1-vX,vY=1-vY))
+    else
+      return(list(auc=auc,vX=vX,vY=vY))
+  }, dataframe, pos.class, simplify=FALSE)
+  
   return(result)
 }
 
